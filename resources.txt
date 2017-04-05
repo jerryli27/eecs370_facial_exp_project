@@ -1,0 +1,4 @@
+http://www.paulvangent.com/2016/08/05/emotion-recognition-using-facial-landmarks/
+https://github.com/JostineHo/mememoji
+https://www.behance.net/gallery/10675283/Facial-Expression-Public-Databases
+https://www.kaggle.com/c/challenges-in-representation-learning-facial-expression-recognition-challenge/data
