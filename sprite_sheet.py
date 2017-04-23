@@ -1,5 +1,5 @@
 # This class handles sprite sheets
-# This was taken from www.scriptefun.com/transcript-2-using
+# This was taken and modified from www.scriptefun.com/transcript-2-using
 # sprite-sheets-and-drawing-the-background
 # I've added some code to fail if the file wasn't found..
 # Note: When calling images_at the rect is the format:
@@ -15,7 +15,7 @@ class SpriteSheet(object):
             print 'Unable to load spritesheet image:', filename
             raise SystemExit, message
     # Load a specific image from a specific rectangle
-    def image_at(self, rectangle, colorkey = None):
+    def image_at(self, rectangle, colorkey = None, width_height = None, flip_x = False, flip_y = False):
         "Loads image from x,y,x+offset,y+offset"
         rect = pygame.Rect(rectangle)
         image = pygame.Surface(rect.size).convert()
@@ -24,6 +24,10 @@ class SpriteSheet(object):
             if colorkey is -1:
                 colorkey = image.get_at((0,0))
             image.set_colorkey(colorkey, pygame.RLEACCEL)
+        if width_height is not None:
+            image = pygame.transform.scale(image, width_height)
+        if flip_x or flip_y:
+            image = pygame.transform.flip(image, flip_x, flip_y)
         return image
     # Load a whole bunch of images and return them as a list
     def images_at(self, rects, colorkey = None):

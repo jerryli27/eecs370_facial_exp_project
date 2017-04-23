@@ -3,5 +3,7 @@ sky.png: http://www.pebbleversion.com/html/SpriteComicGuide3.html
 dog.gif: https://www.spriters-resource.com/resources/sheet_icons/74/76649.gif
 grass.png: http://4.bp.blogspot.com/-ggkSFkq3ky4/UXO1HwBEtZI/AAAAAAAAM9M/JuxFjeDrJwk/s1600/Sprite_FX_Grass_0001.png
 Undertale_Annoying_Dog: https://www.spriters-resource.com/pc_computer/undertale/sheet/76649/
+cat.png: https://www.spriters-resource.com/pc_computer/maplestory/sheet/21897/
 
 Other sprite resources: https://www.spriters-resource.com/search/?q=dog
+A good tool to get the (x,y) coordinates of each pixel under linux: edisplay. Usage: edisplay --gl /path/to/image
