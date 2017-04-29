@@ -17,12 +17,15 @@ import pygame
 import pygame.camera
 from pygame.locals import *
 
+from facial_landmark_util import get_mouth_open_degree
+
 #game constants
 SCREEN_HEIGHT=480
 SCREEN_WIDTH=640
 SCREEN_RECT= Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 FACIAL_LANDMARK_PREDICTOR_WIDTH = 320
 RESIZE_RATIO = (float(SCREEN_WIDTH) / FACIAL_LANDMARK_PREDICTOR_WIDTH)
+MOUTH_RATIO_LOWER_THRESHOLD = 0.2
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 
@@ -139,6 +142,15 @@ class VideoCapturePlayer(object):
                 assert facial_features[0].shape[0] == 68
                 for i in range(68):
                     self.circles[i].move(facial_features[0][i])
+
+                print("Detected %d face%s." % (len(face_coordinates),
+                                               "s" if len(face_coordinates) > 1 else ""))
+                # Assume the first face is the target for now.
+                mouth_open_degree = get_mouth_open_degree(facial_features[0])
+                if mouth_open_degree >= MOUTH_RATIO_LOWER_THRESHOLD:
+                    print("Mouth open degree: %f" % (mouth_open_degree))
+                else:
+                    print("Mouth closed degree: %f" % (mouth_open_degree))
 
             # clear/erase the last drawn sprites
                 self.all.clear(self.display, self.background)

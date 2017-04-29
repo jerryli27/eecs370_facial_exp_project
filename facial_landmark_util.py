@@ -56,3 +56,29 @@ class FacialLandmarkDetector(object):
             face_coordinates.append((x, y, w, h))
 
         return face_coordinates, facial_features
+
+
+def get_mouth_open_degree(facial_features):
+    """
+
+    :param facial_features: format: numpy array of shape (68, 2)
+    :return: The degree of mouth opening
+    """
+    assert isinstance(facial_features,np.ndarray)
+    # Get point 62, 64, 66, 68. Don't forget their index is one minus that.
+    w = float(abs(facial_features[61,0] - facial_features[63,0]) + abs(facial_features[65,0] - facial_features[67,0])) / 2.0
+    h = float(abs(facial_features[61,1] - facial_features[67,1]) + abs(facial_features[63,1] - facial_features[65,1])) / 2.0
+    return h / w
+
+def get_mouth_left_corner_ratio(facial_features):
+    """
+
+    :param facial_features:
+    :return:
+    """
+
+    assert isinstance(facial_features,np.ndarray)
+    # Get point 62, 64, 66, 68. Don't forget their index is one minus that.
+    w = float(abs(facial_features[61,0] - facial_features[63,0]) + abs(facial_features[65,0] - facial_features[67,0])) / 2.0
+    h = float(abs(facial_features[61,1] - facial_features[67,1]) + abs(facial_features[63,1] - facial_features[65,1])) / 2.0
+    return h / w

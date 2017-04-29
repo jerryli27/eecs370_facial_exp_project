@@ -2,6 +2,7 @@
 
 # This file builds a simple 2d arcade game.
 
+import argparse
 import os
 import random
 
@@ -9,8 +10,18 @@ import pygame
 import pygame.camera
 from pygame.locals import *
 
+from facial_landmark_util import FacialLandmarkDetector, get_mouth_open_degree
 from sprite_sheet import SpriteSheet
-from facial_landmark_util import FacialLandmarkDetector
+
+
+# Command line argument parser.
+parser = argparse.ArgumentParser()
+
+parser.add_argument("--no_camera", dest="camera", action="store_false",
+                    help="Turn off camera and use keyboard control.")
+parser.set_defaults(camera=True)
+
+ARGS = parser.parse_args()
 
 #game constants
 SCREEN_HEIGHT=480
@@ -29,7 +40,14 @@ MAX_FPS = 30
 GRAVITY = 2  # pixel/second^2
 MAX_JUMP_CHARGE = 2  # The number of time the object can jump
 INITIAL_DX = -1
+MOUTH_RATIO_LOWER_THRESHOLD = 0.4
+# The jump speed is the facial feature score times this factor. So fo example if the facial feature is ratio
+# between mouth height and mouth width, then the jump speed is ratio * JUMP_SPEED_FACTOR pixels per second.
+JUMP_SPEED_FACTOR = 10
 
+# The gravity factor works similarly to JUMP_SPEED_FACTOR. The gravity is decreased by this factor when feature score
+# exceeds the lower threshold, so that when the mouth opens larger, Deafy falls slower.
+GRAVITY_FACTOR = 1
 
 assert SCREEN_HEIGHT % BACKGROUND_OBJECT_HEIGHT == 0 and SCREEN_WIDTH % BACKGROUND_OBJECT_WIDTH == 0
 
@@ -80,7 +98,8 @@ class MainScreen(object):
         self.background = pygame.Surface(SCREEN_RECT.size)
 
         # Initialize camera
-        self.init_cams(0)
+        if ARGS.camera:
+            self.init_cams(0)
 
         deafy_sheet = SpriteSheet("data/Undertale_Annoying_Dog.png")
         cat_sheet = SpriteSheet("data/cat.png")
@@ -125,7 +144,6 @@ class MainScreen(object):
 
         # Now initialize the FacialLandmarkDetector
         self.fld = FacialLandmarkDetector(SCREEN_WIDTH,SCREEN_HEIGHT,FACIAL_LANDMARK_PREDICTOR_WIDTH)
-
         self.dx = INITIAL_DX
 
     def init_cams(self, which_cam_idx):
@@ -199,14 +217,18 @@ class MainScreen(object):
                         if self.dx < 0:
                             self.deafy.start_running()
                         # Decrease the speed for all background sprites, so it looks like deafy is moving to the right.
-                        for s in self.ground_sprites + self.sky_sprites + self.cat_obstacles:
+                        for s in self.ground_sprites  + self.cat_obstacles:
+                            s.plus_dx(-2)
+                        for s in self.sky_sprites:
                             s.plus_dx(-1)
                     if e.key == K_LEFT:
                         self.dx += 1
                         if self.dx >= 0:
                             self.deafy.stop_running()
                         # Increase the speed for all background sprites, so it looks like deafy is moving to the left.
-                        for s in self.ground_sprites + self.sky_sprites + self.cat_obstacles:
+                        for s in self.ground_sprites + self.cat_obstacles:
+                            s.plus_dx(2)
+                        for s in self.sky_sprites:
                             s.plus_dx(1)
                     if e.key == K_UP:
                         # Jump!
@@ -222,11 +244,22 @@ class MainScreen(object):
                         # Generate a cat
                         self.cat_obstacles.append(CatObstacle(dx=self.dx,pos=(SCREEN_WIDTH,DEAFY_SCREEN_POS[1])))
 
-            self.get_camera_shot()
-            # Now use the facial landmark defector
-            # This step decreases the frame rate from 30 fps to 6fps. So we need to do something about it.
-            # The speed is directly related to FACIAL_LANDMARK_PREDICTOR_WIDTH.
-            # face_coordinates, facial_features = self.fld.get_features(self.snapshot)
+            if ARGS.camera:
+                self.get_camera_shot()
+                # Now use the facial landmark defector
+                # This step decreases the frame rate from 30 fps to 6fps. So we need to do something about it.
+                # The speed is directly related to FACIAL_LANDMARK_PREDICTOR_WIDTH.
+                face_coordinates_list, facial_features_list = self.fld.get_features(self.camera_shot_raw)
+                if len(face_coordinates_list) > 0:
+                    print("Detected %d face%s." %(len(face_coordinates_list),
+                          "s" if len(face_coordinates_list) > 1 else ""))
+                    # Assume the first face is the target for now.
+                    mouth_open_degree = get_mouth_open_degree(facial_features_list[0])
+                    if mouth_open_degree >= MOUTH_RATIO_LOWER_THRESHOLD:
+                        self.deafy.set_gravity(GRAVITY - mouth_open_degree * GRAVITY_FACTOR)
+                        self.deafy.jump(mouth_open_degree * JUMP_SPEED_FACTOR)
+                    print("Mouth open degree: %f" %(mouth_open_degree))
+
 
             # clear/erase the last drawn sprites
             self.all.clear(self.display, self.background)
@@ -236,7 +269,8 @@ class MainScreen(object):
             pygame.display.update(dirty)
             dirty = self.front_group.draw(self.display)
             pygame.display.update(dirty)
-            self.blit_camera_shot(self.camera_default_display_location)
+            if ARGS.camera:
+                self.blit_camera_shot(self.camera_default_display_location)
 
 
             # dirty = self.all.draw(self.display)
@@ -246,6 +280,7 @@ class MainScreen(object):
             print (self.clock.get_fps())
 
 class Deafy(pygame.sprite.Sprite):
+
     images = []
     _DEAFY_STAND_IMAGE_INDEX = 0
     _DEAFY_LIE_DOWN_IMAGE_INDEX = 1
@@ -263,21 +298,30 @@ class Deafy(pygame.sprite.Sprite):
         self.jump_charge = MAX_JUMP_CHARGE  # The number of time the object can jump
         self.is_lying = False
         self.is_running = (INITIAL_DX < 0)
+        self.gravity = GRAVITY
 
     def move(self, pos):
         self.rect= self.image.get_rect(bottomright=pos)
         self.rect = self.rect.clamp(SCREEN_RECT)
 
-    def jump(self):
+    def jump(self, speed=None):
         if self.jump_charge > 0:
             self.is_jumping = True
             # if the object was falling too fast, make the second jump weaker but still allow it to jump.
-            self.y_speed = max(10, self.y_speed + random.randrange(10,50))
+
+            if speed is None:
+                d_jump_speed = random.randrange(10,50)# Give a random change in jump speed.
+            else:
+                d_jump_speed = speed
+
+            self.y_speed = max(10, self.y_speed + d_jump_speed)
             self.jump_charge -= 1
+        else:
+            print("Not enough jump charge.")  # For debugging.
 
     def update(self):
         if self.is_jumping:
-            self.y_speed -= GRAVITY
+            self.y_speed -= self.gravity
             self.rect.move_ip(0,-self.y_speed)
             # Because y goes from top to bottom.
             if self.rect.bottom > self.ground_level:
@@ -321,6 +365,14 @@ class Deafy(pygame.sprite.Sprite):
             new_image_index = self._DEAFY_RUN_IMAGE_START_INDEX
         self.change_image(new_image_index)
 
+    def set_gravity(self, new_gravity):
+        """
+        Modifies self.gravity to be the new gravity. Gravity cannot be lower than 0.
+        :param new_gravity:
+        :return: Nothing
+        """
+        self.gravity = max(0,new_gravity)
+
 
 class BackgroundObjects(pygame.sprite.Sprite):
     images = []
@@ -345,18 +397,18 @@ class BackgroundObjects(pygame.sprite.Sprite):
 
         # If the enemy is outside of the platform, make it appear on the other side of the screen
         if self.rect.left > SCREEN_RECT.right or self.rect.right < SCREEN_RECT.left:
-                if self.destroy_when_oos:
-                    self.kill()
-                    return
+            if self.destroy_when_oos:
+                self.kill()
+                return
+            else:
+                if self.rect.left > SCREEN_RECT.right:
+                    # Move the sprite towards the left n pixels where n = width of platform + width of object.
+                    self.rect.move_ip(SCREEN_RECT.left-SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH,0)
+                elif self.rect.right < SCREEN_RECT.left:
+                    # Move the sprite towards the right n pixels where n = width of platform + width of object.
+                    self.rect.move_ip(SCREEN_RECT.right-SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH,0)
                 else:
-                    if self.rect.left > SCREEN_RECT.right:
-                        # Move the sprite towards the left n pixels where n = width of platform + width of object.
-                        self.rect.move_ip(SCREEN_RECT.left-SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH,0)
-                    elif self.rect.right < SCREEN_RECT.left:
-                        # Move the sprite towards the right n pixels where n = width of platform + width of object.
-                        self.rect.move_ip(SCREEN_RECT.right-SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH,0)
-                    else:
-                        raise AssertionError("This line should not be reached. The object should only move left and right.")
+                    raise AssertionError("This line should not be reached. The object should only move left and right.")
 
 
     def set_dx(self, dx):
