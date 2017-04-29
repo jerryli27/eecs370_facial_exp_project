@@ -10,7 +10,7 @@ import pygame
 import pygame.camera
 from pygame.locals import *
 
-from facial_landmark_util import FacialLandmarkDetector, get_mouth_open_degree
+from facial_landmark_util import FacialLandmarkDetector, get_mouth_open_score
 from sprite_sheet import SpriteSheet
 
 
@@ -30,8 +30,8 @@ SCREEN_RECT= Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 FACIAL_LANDMARK_PREDICTOR_WIDTH = 320
 CAMERA_INPUT_HEIGHT = 480
 CAMERA_INPUT_WIDTH = 640
-CAMERA_DISPLAY_HEIGHT = SCREEN_HEIGHT / 8
-CAMERA_DISPLAY_WIDTH = SCREEN_WIDTH / 8
+CAMERA_DISPLAY_HEIGHT = SCREEN_HEIGHT / 4
+CAMERA_DISPLAY_WIDTH = SCREEN_WIDTH / 4
 CAMERA_DISPLAY_SIZE = (CAMERA_DISPLAY_WIDTH, CAMERA_DISPLAY_HEIGHT)
 BACKGROUND_OBJECT_HEIGHT = 32
 BACKGROUND_OBJECT_WIDTH = 32
@@ -44,18 +44,23 @@ SKY_Y_LIMITS = (0,GROUND_LEVEL)
 DEAFY_SCREEN_POS = (SCREEN_WIDTH/8, GROUND_LEVEL)
 
 MAX_FPS = 30
-GRAVITY = 2  # pixel/second^2
-MAX_JUMP_CHARGE = 2  # The number of time the object can jump
+INITIAL_GRAVITY = 2  # pixel/second^2
+MAX_JUMP_CHARGE = 1  # The number of time the object can jump
 INITIAL_DX = 0
 STD_DX = -1
-MOUTH_RATIO_LOWER_THRESHOLD = 0.4
+MOUTH_SCORE_JUMP_LOWER_THRESHOLD = 0.5  # The mouth score has to be at least this big for Deafy to start jumping.
 # The jump speed is the facial feature score times this factor. So fo example if the facial feature is ratio
 # between mouth height and mouth width, then the jump speed is ratio * JUMP_SPEED_FACTOR pixels per second.
-JUMP_SPEED_FACTOR = 10
-
+JUMP_SPEED_FACTOR = 30
 # The gravity factor works similarly to JUMP_SPEED_FACTOR. The gravity is decreased by this factor when feature score
 # exceeds the lower threshold, so that when the mouth opens larger, Deafy falls slower.
 GRAVITY_FACTOR = 1
+MIN_GRAVITY = 0.5
+# This controls the speed at which Deafy moves. (Temporary solution for the demo)
+MOUTH_SCORE_SPEED_THRESHOLDS = [(0.3, -2), (0.4, -4), (0.6, -6), (0.8, -8)]
+
+
+MOUTH_LEFT_CORNER_THRESHOLD = 0.8
 
 assert SCREEN_HEIGHT % BACKGROUND_OBJECT_HEIGHT == 0 and SCREEN_WIDTH % BACKGROUND_OBJECT_WIDTH == 0
 
@@ -85,6 +90,9 @@ class dummysound:
     def play(self): pass
 
 def load_sound(file):
+    # Note: if the sound does not play, convert it to .ogg format using this
+    # website https://www.onlinevideoconverter.com/convert-wav-to-mp3
+    # Or use sudo apt-get install vorbis-tools And to encode: oggenc -q 3 -o file.ogg file.wav
     if not pygame.mixer: return dummysound()
     file = os.path.join(main_dir, 'data', file)
     try:
@@ -151,6 +159,7 @@ class MainScreen(object):
         if ARGS.camera:
             self.init_cams(0)
 
+        # Load graphics
         deafy_sheet = SpriteSheet("data/Undertale_Annoying_Dog.png")
         cat_sheet = SpriteSheet("data/cat.png")
 
@@ -166,6 +175,9 @@ class MainScreen(object):
                               cat_sheet.image_at((1+54, 158, 54, 42), colorkey=-1),
                               cat_sheet.image_at((1+54*2, 158, 54, 42), colorkey=-1),
                               cat_sheet.image_at((1+54*3, 158, 54, 42), colorkey=-1),]
+        # Load sounds
+        Deafy.sounds = [load_sound("normal.ogg"), load_sound("jump.ogg"), load_sound("victory.ogg")]
+
         # Initialize Game Groups
         self.all = pygame.sprite.RenderUpdates()
         self.background_group = pygame.sprite.RenderUpdates()
@@ -231,10 +243,6 @@ class MainScreen(object):
 
     def get_camera_shot(self):
         # For now, only get the camera shot and store it in self.camera_shot_raw.
-
-
-
-
         # if you don't want to tie the framerate to the camera, you can check and
         # see if the camera has an image ready.  note that while this works
         # on most cameras, some will never return true.
@@ -258,6 +266,33 @@ class MainScreen(object):
         """
         self.display.blit(self.camera_shot, blit_location)
 
+    def set_dx(self, new_dx):
+        """
+        This is a function to control overall speed.
+        :return:
+        """
+        self.dx = new_dx
+        print self.dx
+        if self.dx < 0:
+            self.deafy.start_running()
+        else:
+            self.deafy.stop_running()
+        for s in self.sky_sprites + self.ground_sprites + self.cat_obstacles + self.ground_obstacle_sprites:
+            s.set_dx(self.dx)
+
+    def change_dx(self, change):
+        """
+        This is a function to control overall speed.
+        :return:
+        """
+        self.dx += change
+        print self.dx
+        if self.dx < 0:
+            self.deafy.start_running()
+        else:
+            self.deafy.stop_running()
+        for s in self.sky_sprites + self.ground_sprites + self.cat_obstacles + self.ground_obstacle_sprites:
+            s.set_dx(self.dx)
 
     def main(self,):
         going = True
@@ -269,18 +304,9 @@ class MainScreen(object):
                     going = False
                 if e.type == KEYDOWN:
                     if e.key == K_RIGHT:
-                        self.dx -= 1
-                        print self.dx
-                        if self.dx < 0:
-                            self.deafy.start_running()
-                        for s in self.sky_sprites + self.ground_sprites  + self.cat_obstacles + self.ground_obstacle_sprites:
-                            s.set_dx(self.dx)
+                        self.change_dx(-1)
                     if e.key == K_LEFT:
-                        self.dx += 1
-                        if self.dx >= 0:
-                            self.deafy.stop_running()
-                        for s in self.sky_sprites + self.ground_sprites  + self.cat_obstacles + self.ground_obstacle_sprites:
-                            s.set_dx(self.dx)
+                        self.change_dx(1)
                     if e.key == K_UP:
                         # Jump!
                         if self.deafy.is_lying:
@@ -305,11 +331,30 @@ class MainScreen(object):
                     print("Detected %d face%s." %(len(face_coordinates_list),
                           "s" if len(face_coordinates_list) > 1 else ""))
                     # Assume the first face is the target for now.
-                    mouth_open_degree = get_mouth_open_degree(facial_features_list[0])
-                    if mouth_open_degree >= MOUTH_RATIO_LOWER_THRESHOLD:
-                        self.deafy.set_gravity(GRAVITY - mouth_open_degree * GRAVITY_FACTOR)
-                        self.deafy.jump(mouth_open_degree * JUMP_SPEED_FACTOR)
-                    print("Mouth open degree: %f" %(mouth_open_degree))
+                    mouth_open_score = get_mouth_open_score(facial_features_list[0])
+                    if mouth_open_score >= MOUTH_SCORE_JUMP_LOWER_THRESHOLD:
+                        self.deafy.set_gravity(INITIAL_GRAVITY - mouth_open_score * GRAVITY_FACTOR)
+                        self.deafy.jump(mouth_open_score * JUMP_SPEED_FACTOR)
+                    # Now set the speed for deafy based on how open the mouth is.
+                    for threshold_i, (threshold, speed) in enumerate(MOUTH_SCORE_SPEED_THRESHOLDS):
+                        if mouth_open_score >= threshold:
+                            self.set_dx(speed)
+                        else:
+                            if threshold_i == 0:
+                                # Mouth score is smaller than the first threshold. Set dx to 0.
+                                self.set_dx(0)
+                            break
+                    print("Mouth open degree: %f" %(mouth_open_score))
+                    # # Use the left mouth corner to decrease the speed
+                    # mouth_left_corner_score = get_mouth_left_corner_score(facial_features_list[0])
+                    # if mouth_left_corner_score >= MOUTH_LEFT_CORNER_THRESHOLD:
+                    #     self.change_dx(-1)
+                    # print("Mouth left corner score: %f" %(mouth_left_corner_score))
+                else:
+                    # TODO: maybe add a smoothing factor. Otherwise Deafy stops whenever the camera cannot detect the
+                    # face, making the game harder to control.
+                    self.set_dx(0)
+                    self.deafy.set_gravity(INITIAL_GRAVITY)
 
             # based on dx, update the current screen state
             self.visible_xrange = map(lambda n:n-self.dx, self.visible_xrange)
@@ -361,10 +406,12 @@ class MainScreen(object):
 class Deafy(pygame.sprite.Sprite):
 
     images = []
+    sounds = []
     _DEAFY_STAND_IMAGE_INDEX = 0
     _DEAFY_LIE_DOWN_IMAGE_INDEX = 1
     _DEAFY_RUN_IMAGE_START_INDEX = 2
     _DEAFY_RUN_IMAGE_END_INDEX = 3
+    _DEAFY_JUMP_SOUND_INDEX = 1
     def __init__(self, pos=SCREEN_RECT.bottomright):
         # Notice that bottomright instead of bottomleft is used for deafy, because deafy is facing right.
         pygame.sprite.Sprite.__init__(self, self.containers)
@@ -377,7 +424,7 @@ class Deafy(pygame.sprite.Sprite):
         self.jump_charge = MAX_JUMP_CHARGE  # The number of time the object can jump
         self.is_lying = False
         self.is_running = (INITIAL_DX < 0)
-        self.gravity = GRAVITY
+        self.gravity = INITIAL_GRAVITY
 
     def move(self, pos):
         self.rect= self.image.get_rect(bottomright=pos)
@@ -395,6 +442,8 @@ class Deafy(pygame.sprite.Sprite):
 
             self.y_speed = max(10, self.y_speed + d_jump_speed)
             self.jump_charge -= 1
+            # Play sound effect
+            self.sounds[self._DEAFY_JUMP_SOUND_INDEX].play()
         else:
             print("Not enough jump charge.")  # For debugging.
 
@@ -435,8 +484,10 @@ class Deafy(pygame.sprite.Sprite):
         self.change_image(self._DEAFY_RUN_IMAGE_START_INDEX)
 
     def stop_running(self):
-        self.is_running = False
-        self.change_image(self._DEAFY_STAND_IMAGE_INDEX)
+        # Only stop animation when it's not jumping.
+        if not self.is_jumping:
+            self.is_running = False
+            self.change_image(self._DEAFY_STAND_IMAGE_INDEX)
 
     def run_next_frame(self):
         new_image_index = self.current_image_index + 1
@@ -450,7 +501,7 @@ class Deafy(pygame.sprite.Sprite):
         :param new_gravity:
         :return: Nothing
         """
-        self.gravity = max(0,new_gravity)
+        self.gravity = max(MIN_GRAVITY,new_gravity)
 
 
 class BackgroundObjects(pygame.sprite.Sprite):
