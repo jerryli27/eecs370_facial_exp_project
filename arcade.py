@@ -23,7 +23,7 @@ parser.set_defaults(camera=True)
 
 ARGS = parser.parse_args()
 
-#game constants
+# game constants
 SCREEN_HEIGHT=480
 SCREEN_WIDTH=640
 SCREEN_RECT= Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -35,11 +35,19 @@ CAMERA_DISPLAY_WIDTH = SCREEN_WIDTH / 8
 CAMERA_DISPLAY_SIZE = (CAMERA_DISPLAY_WIDTH, CAMERA_DISPLAY_HEIGHT)
 BACKGROUND_OBJECT_HEIGHT = 32
 BACKGROUND_OBJECT_WIDTH = 32
-DEAFY_SCREEN_POS = (SCREEN_WIDTH/8, SCREEN_HEIGHT*7/8)
+
+# UI object specifics
+# The y goes from top to bottom starting at 0.
+GROUND_LEVEL = SCREEN_HEIGHT*3/4
+GROUND_Y_LIMITS = (GROUND_LEVEL,SCREEN_HEIGHT)
+SKY_Y_LIMITS = (0,GROUND_LEVEL)
+DEAFY_SCREEN_POS = (SCREEN_WIDTH/8, GROUND_LEVEL)
+
 MAX_FPS = 30
 GRAVITY = 2  # pixel/second^2
 MAX_JUMP_CHARGE = 2  # The number of time the object can jump
-INITIAL_DX = -1
+INITIAL_DX = 0
+STD_DX = -1
 MOUTH_RATIO_LOWER_THRESHOLD = 0.4
 # The jump speed is the facial feature score times this factor. So fo example if the facial feature is ratio
 # between mouth height and mouth width, then the jump speed is ratio * JUMP_SPEED_FACTOR pixels per second.
@@ -86,6 +94,48 @@ def load_sound(file):
         print ('Warning, unable to load, %s' % file)
     return dummysound()
 
+
+class Item(object):
+
+    def __init__(self, xstart, height, width, type):
+        self.xstart = xstart
+        self.height = height
+        self.width = width
+        self.type = type
+
+
+class Stage(object):
+
+    def __init__(self, num, **argd):
+        self.stage_num = num
+        path = 'data/stages/' + str(num) + '.stage'
+        with open(path, 'r') as f:
+            stage_layout = f.read()
+        stage_layout = stage_layout.split('\n')
+        stage_layout = filter(lambda n: n != '', stage_layout)
+        if len(stage_layout) == 0:
+            raise AssertionError("Cannot read info about at path "+path)
+        stage_layout = map(lambda n: map(int, n.split(' ')), stage_layout)
+        stage_layout.sort(key=lambda n:n[0])
+        self.stage_layout = []
+        for s in stage_layout:
+            self.stage_layout.append(Item(s[0], s[1], s[2], s[3]))
+        self.next = 0
+        self.length = len(self.stage_layout)
+
+    def view_next_item(self):
+        if self.next == self.length:
+            return None
+        return self.stage_layout[self.next]
+
+    def pop_next_item(self):
+        if self.next == self.length:
+            return None
+        obstacle = self.stage_layout[self.next]
+        self.next += 1
+        return obstacle
+
+
 class MainScreen(object):
 
     size = ( SCREEN_WIDTH, SCREEN_HEIGHT )
@@ -110,6 +160,7 @@ class MainScreen(object):
                         deafy_sheet.image_at((25, 182, 44-25, 200-182), colorkey=-1, width_height=(19*2,18*2), flip_x=True),]
         Sky.images =  [load_image('sky.png', (32,32))]
         Ground.images =  [load_image('grass.png', (32,32))]
+        GroundObstacle.images = [load_image('grass.png', (32,32)), load_image('sky.png', (32,32))]
         CatObstacle.images = [cat_sheet.image_at((0, 0, 54, 42), colorkey=-1),
                               cat_sheet.image_at((1, 158, 54, 42), colorkey=-1),
                               cat_sheet.image_at((1+54, 158, 54, 42), colorkey=-1),
@@ -118,6 +169,7 @@ class MainScreen(object):
         # Initialize Game Groups
         self.all = pygame.sprite.RenderUpdates()
         self.background_group = pygame.sprite.RenderUpdates()
+        self.obstacle_group = pygame.sprite.RenderUpdates()
         # Sprites in this group are rendered after background so that they appear on the top.
         self.front_group = pygame.sprite.RenderUpdates()
 
@@ -125,26 +177,30 @@ class MainScreen(object):
         Deafy.containers = self.all, self.front_group
         Ground.containers = self.all, self.background_group
         Sky.containers = self.all, self.background_group
+        GroundObstacle.containers = self.all, self.obstacle_group
         CatObstacle.containers = self.all, self.front_group
 
-        # The y goes from top to bottom starting at 0.
-        self.ground_y_limits = (SCREEN_HEIGHT*3/4,SCREEN_HEIGHT)
-        self.sky_y_limits = (0,SCREEN_HEIGHT*3/4)
+        # initialize stage
+        self.stage = Stage(num=1)
+        self.current_items = []
+
         # TODO: Maybe the height and width are the other way around
         self.ground_sprites = [Ground(pos=(w*BACKGROUND_OBJECT_WIDTH, h*BACKGROUND_OBJECT_HEIGHT))
                                for w in range(SCREEN_WIDTH / BACKGROUND_OBJECT_WIDTH + 1)
-                               for h in range(self.ground_y_limits[0] / BACKGROUND_OBJECT_HEIGHT + 1,
-                                              self.ground_y_limits[1] / BACKGROUND_OBJECT_HEIGHT + 1)]
+                               for h in range(GROUND_Y_LIMITS[0] / BACKGROUND_OBJECT_HEIGHT + 1,
+                                              GROUND_Y_LIMITS[1] / BACKGROUND_OBJECT_HEIGHT + 1)]
         self.sky_sprites = [Sky(pos=(w*BACKGROUND_OBJECT_WIDTH, h*BACKGROUND_OBJECT_HEIGHT))
                                for w in range(SCREEN_WIDTH / BACKGROUND_OBJECT_WIDTH + 1)
-                               for h in range(self.sky_y_limits[0] / BACKGROUND_OBJECT_HEIGHT + 1,
-                                              self.sky_y_limits[1] / BACKGROUND_OBJECT_HEIGHT + 1)]
+                               for h in range(SKY_Y_LIMITS[0] / BACKGROUND_OBJECT_HEIGHT + 1,
+                                              SKY_Y_LIMITS[1] / BACKGROUND_OBJECT_HEIGHT + 1)]
         self.deafy = Deafy(pos=DEAFY_SCREEN_POS)
+        self.ground_obstacle_sprites = []
         self.cat_obstacles = []
 
         # Now initialize the FacialLandmarkDetector
         self.fld = FacialLandmarkDetector(SCREEN_WIDTH,SCREEN_HEIGHT,FACIAL_LANDMARK_PREDICTOR_WIDTH)
         self.dx = INITIAL_DX
+        self.visible_xrange = [0, SCREEN_WIDTH]
 
     def init_cams(self, which_cam_idx):
 
@@ -214,22 +270,17 @@ class MainScreen(object):
                 if e.type == KEYDOWN:
                     if e.key == K_RIGHT:
                         self.dx -= 1
+                        print self.dx
                         if self.dx < 0:
                             self.deafy.start_running()
-                        # Decrease the speed for all background sprites, so it looks like deafy is moving to the right.
-                        for s in self.ground_sprites  + self.cat_obstacles:
-                            s.plus_dx(-2)
-                        for s in self.sky_sprites:
-                            s.plus_dx(-1)
+                        for s in self.sky_sprites + self.ground_sprites  + self.cat_obstacles + self.ground_obstacle_sprites:
+                            s.set_dx(self.dx)
                     if e.key == K_LEFT:
                         self.dx += 1
                         if self.dx >= 0:
                             self.deafy.stop_running()
-                        # Increase the speed for all background sprites, so it looks like deafy is moving to the left.
-                        for s in self.ground_sprites + self.cat_obstacles:
-                            s.plus_dx(2)
-                        for s in self.sky_sprites:
-                            s.plus_dx(1)
+                        for s in self.sky_sprites + self.ground_sprites  + self.cat_obstacles + self.ground_obstacle_sprites:
+                            s.set_dx(self.dx)
                     if e.key == K_UP:
                         # Jump!
                         if self.deafy.is_lying:
@@ -260,12 +311,40 @@ class MainScreen(object):
                         self.deafy.jump(mouth_open_degree * JUMP_SPEED_FACTOR)
                     print("Mouth open degree: %f" %(mouth_open_degree))
 
+            # based on dx, update the current screen state
+            self.visible_xrange = map(lambda n:n-self.dx, self.visible_xrange)
+            self.current_items = filter(lambda item:item.xstart + item.width >= self.visible_xrange[0], self.current_items)
+            # if self.dx != 0:
+            #     print self.visible_xrange
+            while self.stage.view_next_item() and self.stage.view_next_item().xstart < self.visible_xrange[1]:
+                item = self.stage.pop_next_item()
+                self.current_items.append(item)
+                print self.visible_xrange, self.current_items
+                # create ui object for this item
+                xstart = item.xstart - self.visible_xrange[0]
+                if item.type == 0:
+                    ystart = GROUND_LEVEL - item.height
+                if item.type == 1:
+                    ystart = GROUND_LEVEL
+                # how to show half sprites???
+                self.ground_obstacle_sprites.extend([
+                    GroundObstacle(item_type=item.type, dx=self.dx, pos=(w, h))
+                    for w in range(xstart, xstart+item.width, BACKGROUND_OBJECT_WIDTH)
+                    for h in range(ystart, ystart+item.height, BACKGROUND_OBJECT_HEIGHT)])
+
+
+            # TODO: update the current game state
+            # if dog over gap-type obstacle, continue falling (delete the ground handling in Deafy)
+            # if collision with ground-type obstacle, stop running
+
 
             # clear/erase the last drawn sprites
             self.all.clear(self.display, self.background)
             self.all.update()
             # # draw the scene
             dirty = self.background_group.draw(self.display)
+            pygame.display.update(dirty)
+            dirty = self.obstacle_group.draw(self.display)
             pygame.display.update(dirty)
             dirty = self.front_group.draw(self.display)
             pygame.display.update(dirty)
@@ -277,7 +356,7 @@ class MainScreen(object):
             # pygame.display.update(dirty)
             pygame.display.flip()
             self.clock.tick(MAX_FPS)
-            print (self.clock.get_fps())
+            # print (self.clock.get_fps())
 
 class Deafy(pygame.sprite.Sprite):
 
@@ -432,12 +511,32 @@ class Sky(BackgroundObjects):
     pass
 
 
+
+class GroundObstacle(BackgroundObjects):
+
+    _GROUND_IMAGE_INDEX = 0
+    _GAP_IMAGE_INDEX = 1
+
+    def __init__(self, item_type, dx=INITIAL_DX, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True):
+        super(GroundObstacle, self).__init__(dx, pos, destroy_when_oos)
+        if item_type == self._GROUND_IMAGE_INDEX or item_type == self._GAP_IMAGE_INDEX:
+            self.change_image(item_type)
+
+    def update(self):
+        before = self.rect.left, self.rect.right
+        super(GroundObstacle, self).update()
+        after = self.rect.left, self.rect.right
+        # if before != after:
+        #     print before, after
+
+
+
 class CatObstacle(BackgroundObjects):
     _CAT_SIT_IMAGE_INDEX = 0
     _CAT_RUN_IMAGE_START_INDEX = 1
     _CAT_RUN_IMAGE_END_INDEX = 4
 
-    def __init__(self, dx=INITIAL_DX, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True):
+    def __init__(self, dx=STD_DX, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True):
         super(CatObstacle, self).__init__(dx, pos,destroy_when_oos)
         if len(self.images) < (self._CAT_RUN_IMAGE_END_INDEX + 1):
             raise AssertionError("Wrong number of images loaded for class CatObstacle. "
@@ -460,6 +559,7 @@ class CatObstacle(BackgroundObjects):
 
     def change_to_sit_frame(self):
         self.change_image(self._CAT_SIT_IMAGE_INDEX)
+
 
 def main():
     pygame.init()
