@@ -41,7 +41,7 @@ DIALOG_FRAME_COUNT = 4 # The number of total dialog frames
 
 # UI object specifics
 # The y goes from top to bottom starting at 0.
-GROUND_LEVEL = SCREEN_HEIGHT*3/4
+GROUND_LEVEL = SCREEN_HEIGHT*11/15
 GROUND_Y_LIMITS = (GROUND_LEVEL,SCREEN_HEIGHT)
 SKY_Y_LIMITS = (0,GROUND_LEVEL)
 DEAFY_SCREEN_POS = (SCREEN_WIDTH/8, GROUND_LEVEL)
@@ -117,6 +117,8 @@ class Item(object):
 
 class Stage(object):
 
+    _FINISH_LINE_DIST = 100
+
     def __init__(self, num, **argd):
         self.stage_num = num
         path = 'data/stages/' + str(num) + '.stage'
@@ -133,6 +135,8 @@ class Stage(object):
             self.stage_layout.append(Item(s[0], s[1], s[2], s[3]))
         self.next = 0
         self.length = len(self.stage_layout)
+        last = self.stage_layout[-1]
+        self.finish_line = last.xstart + last.width + self._FINISH_LINE_DIST
 
     def view_next_item(self):
         if self.next == self.length:
@@ -145,6 +149,9 @@ class Stage(object):
         obstacle = self.stage_layout[self.next]
         self.next += 1
         return obstacle
+
+    def checkWin(self, x):
+        return x > self.finish_line
 
 
 class MainScreen(object):
@@ -300,7 +307,12 @@ class MainScreen(object):
         for s in self.sky_sprites + self.ground_sprites + self.cat_obstacles + self.ground_obstacle_sprites:
             s.set_dx(self.dx)
 
+    def handle_game_over(self):
+        print 'Sorry, Game Over! :( '
+        return
+
     def main(self,):
+
         going = True
         self.clock = pygame.time.Clock()
         while going:
@@ -309,10 +321,12 @@ class MainScreen(object):
                 if e.type == QUIT or (e.type == KEYDOWN and e.key == K_ESCAPE):
                     going = False
                 if e.type == KEYDOWN:
+                    # handle different keys
                     if e.key == K_RIGHT:
                         self.change_dx(-1)
                     if e.key == K_LEFT:
-                        self.change_dx(1)
+                        if self.dx < 0:
+                            self.change_dx(1)
                     if e.key == K_UP:
                         # Jump!
                         if self.deafy.is_lying:
@@ -380,6 +394,7 @@ class MainScreen(object):
                     ystart = GROUND_LEVEL - item.height
                 if item.type == 1:
                     ystart = GROUND_LEVEL
+                ystart += BACKGROUND_OBJECT_HEIGHT
                 # how to show half sprites???
                 self.ground_obstacle_sprites.extend([
                     GroundObstacle(item_type=item.type, dx=self.dx, pos=(w, h))
@@ -387,9 +402,39 @@ class MainScreen(object):
                     for h in range(ystart, ystart+item.height, BACKGROUND_OBJECT_HEIGHT)])
 
 
-            # TODO: update the current game state
-            # if dog over gap-type obstacle, continue falling (delete the ground handling in Deafy)
-            # if collision with ground-type obstacle, stop running
+            # update the current game state
+            # update the ground level on the current screen
+            ground_level = [GROUND_LEVEL for i in xrange(SCREEN_WIDTH)]
+            for item in self.current_items:
+                item_left = item.xstart - self.visible_xrange[0]
+                for x in xrange(max(0, item_left), min(SCREEN_WIDTH, item_left+item.width)):
+                    if item.type == 0:
+                        ground_level[x] -= item.height
+                    elif item.type == 1:
+                        ground_level[x] += item.height
+            # if the ground level in front of deafy is higher than itself, stop running.
+            dleft, dright = self.deafy.rect.left, self.deafy.rect.right
+            dbottom, dy = self.deafy.rect.bottom, self.deafy.y_speed
+            for x in xrange(dright, dright-self.dx):
+                if self.deafy.rect.bottom > ground_level[x]:
+                    self.set_dx(0)
+            # check the dog's motion with respect to the ground
+            valid_ground_level = min(ground_level[dleft:dright])    # use the highest ground level
+            if dbottom <= valid_ground_level <= dbottom-dy:
+                if self.deafy.y_speed <= 0:
+                    self.deafy.land_on_ground(ground=valid_ground_level)
+            elif dbottom-dy < valid_ground_level:
+                self.deafy.fall()
+
+            # check the status of the game (win / lose)
+            # winning: if the dog succeeded going 100 pixel further than the last stage item
+            if self.stage.checkWin(self.deafy.rect.left+self.visible_xrange[0]):
+                print 'You win!'
+                going = False
+            # lose if the dog falls completely outside the screen
+            if self.deafy.rect.top > SCREEN_HEIGHT:
+                self.handle_game_over()
+                going = False
 
 
             # clear/erase the last drawn sprites
@@ -463,17 +508,23 @@ class Deafy(pygame.sprite.Sprite):
         else:
             print("Not enough jump charge.")  # For debugging.
 
+    def fall(self):
+        if not self.is_jumping:
+            self.is_jumping = True
+            self.jump_charge = 0
+
     def update(self):
         if self.is_jumping:
             self.y_speed -= self.gravity
             self.rect.move_ip(0,-self.y_speed)
-            # Because y goes from top to bottom.
-            if self.rect.bottom > self.ground_level:
-                self.rect.bottom = self.ground_level
-                self.is_jumping = False
-                self.jump_charge = MAX_JUMP_CHARGE
         if self.is_running:
             self.run_next_frame()
+
+    def land_on_ground(self, ground):
+        self.rect.bottom = ground
+        self.is_jumping = False
+        self.y_speed = 0
+        self.jump_charge = MAX_JUMP_CHARGE
 
     def change_image(self, new_image_index):
         if self.current_image_index != new_image_index:
@@ -544,7 +595,7 @@ class BackgroundObjects(pygame.sprite.Sprite):
         # If the enemy is outside of the platform, make it appear on the other side of the screen
         if self.rect.left > SCREEN_RECT.right or self.rect.right < SCREEN_RECT.left:
             if self.destroy_when_oos:
-                self.kill()
+                self.handle_oos()
                 return
             else:
                 if self.rect.left > SCREEN_RECT.right:
@@ -568,6 +619,10 @@ class BackgroundObjects(pygame.sprite.Sprite):
             self.current_image_index = new_image_index
             self.image = self.images[self.current_image_index]
             self.rect = self.image.get_rect(bottomleft=self.rect.bottomleft)
+
+    def handle_oos(self):
+        if self.destroy_when_oos:
+            self.kill()
 
 
 class Ground(BackgroundObjects):
@@ -595,6 +650,11 @@ class GroundObstacle(BackgroundObjects):
         after = self.rect.left, self.rect.right
         # if before != after:
         #     print before, after
+
+    def handle_oos(self):
+        # only kill the obstacle when it reaches the far left
+        if self.rect.right < SCREEN_RECT.left:
+            self.kill()
 
 
 
