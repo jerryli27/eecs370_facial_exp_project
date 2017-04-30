@@ -35,6 +35,9 @@ CAMERA_DISPLAY_WIDTH = SCREEN_WIDTH / 4
 CAMERA_DISPLAY_SIZE = (CAMERA_DISPLAY_WIDTH, CAMERA_DISPLAY_HEIGHT)
 BACKGROUND_OBJECT_HEIGHT = 32
 BACKGROUND_OBJECT_WIDTH = 32
+MAX_JUMP_CHARGE = 2  # The number of time the object can jump
+DIALOG_FRAME_COUNT = 4 # The number of total dialog frames
+
 
 # UI object specifics
 # The y goes from top to bottom starting at 0.
@@ -214,6 +217,9 @@ class MainScreen(object):
         self.dx = INITIAL_DX
         self.visible_xrange = [0, SCREEN_WIDTH]
 
+        # to track of which dialog frame shold be rendered
+        self.dialog_frame = 0
+
     def init_cams(self, which_cam_idx):
 
         # gets a list of available cameras.
@@ -320,6 +326,9 @@ class MainScreen(object):
                     if e.key == K_c:
                         # Generate a cat
                         self.cat_obstacles.append(CatObstacle(dx=self.dx,pos=(SCREEN_WIDTH,DEAFY_SCREEN_POS[1])))
+                    if e.key == K_SPACE:
+                        if self.dialog_frame < DIALOG_FRAME_COUNT:
+                            self.dialog_frame += 1
 
             if ARGS.camera:
                 self.get_camera_shot()
@@ -393,7 +402,14 @@ class MainScreen(object):
             pygame.display.update(dirty)
             dirty = self.front_group.draw(self.display)
             pygame.display.update(dirty)
-            if ARGS.camera:
+
+            # display dialog
+            if self.dialog_frame < DIALOG_FRAME_COUNT:
+                self.dialog = Dialog(self.dialog_frame)
+                self.display.blit(self.dialog.image, (SCREEN_WIDTH-320, SCREEN_HEIGHT-120))
+
+            # enable camera only after all dialog frames are shown
+            if ARGS.camera and self.dialog_frame >= DIALOG_FRAME_COUNT:
                 self.blit_camera_shot(self.camera_default_display_location)
 
 
@@ -610,6 +626,54 @@ class CatObstacle(BackgroundObjects):
 
     def change_to_sit_frame(self):
         self.change_image(self._CAT_SIT_IMAGE_INDEX)
+
+class Dialog(pygame.sprite.Sprite):
+    width = 300
+    height = 100
+    white = (255,255,255)
+    black = (0,0,0)
+
+    text_group = []
+    texts = ['Deafy is lost in the wild and he needs', 'your help. He can not hear']
+    texts2 = ['but has a sharp vision. Use your facial ', 'expression, specifically']
+    texts3 = ['the extent in which you open your ', 'mouth to control Deafy\'s running']
+    texts4 = ['and running and help guide him home.', ' ']
+    text_group.append(texts)
+    text_group.append(texts2)
+    text_group.append(texts3)
+    text_group.append(texts4)
+
+    def __init__(self, diglog_index):
+        pygame.font.init()
+        myfont = pygame.font.SysFont('Comic Sans MS', 22)
+
+        self.image = pygame.Surface([Dialog.width, Dialog.height])
+        self.image.fill(Dialog.black)
+        self.rect = self.image.get_rect()
+
+        border_width = 5
+        # horizontal border
+        h_border = pygame.Surface([Dialog.width, border_width])
+        h_border.fill(Dialog.white)
+        # vertical border
+        v_border = pygame.Surface([border_width, Dialog.height])
+        v_border.fill(Dialog.white)
+
+        # render current frame text
+        current_text = Dialog.text_group[diglog_index]
+        distance = 0
+        for i in range(len(current_text)):
+            textsurface = myfont.render(current_text[i], False, Dialog.white)
+            self.image.blit(textsurface, (15, 15 + distance))
+            distance += (i+1) * 15
+        space_indicator = myfont.render('>>> Space', False, Dialog.white)
+        self.image.blit(space_indicator, (200, 15 + distance))
+
+        # add border to each edge of the image
+        self.image.blit(v_border, (0,0))
+        self.image.blit(v_border, (Dialog.width-border_width,0))
+        self.image.blit(h_border, (0,0))
+        self.image.blit(h_border, (0, Dialog.height-border_width))
 
 
 def main():
