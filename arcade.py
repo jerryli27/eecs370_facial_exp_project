@@ -5,6 +5,7 @@
 import argparse
 import os
 import random
+import time
 
 import pygame
 import pygame.camera
@@ -176,7 +177,9 @@ class MainScreen(object):
         Deafy.images = [deafy_sheet.image_at((2, 101, 22-2, 119-101), colorkey=-1, width_height=(20*2,18*2), flip_x=True),
                         deafy_sheet.image_at((2, 204, 26-2, 216-204), colorkey=-1, width_height=(24*2,12*2), flip_x=True),
                         deafy_sheet.image_at((2, 182, 23-2, 200-182), colorkey=-1, width_height=(21*2,18*2), flip_x=True),
-                        deafy_sheet.image_at((25, 182, 44-25, 200-182), colorkey=-1, width_height=(19*2,18*2), flip_x=True),]
+                        deafy_sheet.image_at((25, 182, 44-25, 200-182), colorkey=-1, width_height=(19*2,18*2), flip_x=True),
+                        deafy_sheet.image_at((2, 101, 22-2, 119-101), colorkey=-1, width_height=(20 * 2, 18 * 2),
+                                             flip_x=True, flip_y=True),]
         Sky.images =  [load_image('sky.png', (32,32))]
         Ground.images =  [load_image('grass.png', (32,32))]
         GroundObstacle.images = [load_image('grass.png', (32,32)), load_image('sky.png', (32,32))]
@@ -201,6 +204,7 @@ class MainScreen(object):
         Sky.containers = self.all, self.background_group
         GroundObstacle.containers = self.all, self.obstacle_group
         CatObstacle.containers = self.all, self.front_group
+        Dialog.containers = self.all
 
         # initialize stage
         self.stage = Stage(num=1)
@@ -226,6 +230,8 @@ class MainScreen(object):
 
         # to track of which dialog frame shold be rendered
         self.dialog_frame = 0
+        # To trach whether dialog is displayed now. If so, disable user control.
+        self.is_dialog_active = True
 
     def init_cams(self, which_cam_idx):
 
@@ -343,8 +349,11 @@ class MainScreen(object):
                     if e.key == K_SPACE:
                         if self.dialog_frame < DIALOG_FRAME_COUNT:
                             self.dialog_frame += 1
+                            if self.dialog_frame >= DIALOG_FRAME_COUNT:
+                                self.is_dialog_active = False
 
-            if ARGS.camera:
+
+            if ARGS.camera and not self.is_dialog_active:
                 self.get_camera_shot()
                 # Now use the facial landmark defector
                 # This step decreases the frame rate from 30 fps to 6fps. So we need to do something about it.
@@ -417,7 +426,8 @@ class MainScreen(object):
             dbottom, dy = self.deafy.rect.bottom, self.deafy.y_speed
             for x in xrange(dright, dright-self.dx):
                 if self.deafy.rect.bottom > ground_level[x]:
-                    self.set_dx(0)
+                    self.set_dx(0)  # TODO: also disable set_dx() anywhere else.
+                    self.deafy.failed = True  # Disable user control on deafy afterwards.
             # check the dog's motion with respect to the ground
             valid_ground_level = min(ground_level[dleft:dright])    # use the highest ground level
             if dbottom <= valid_ground_level <= dbottom-dy:
@@ -428,8 +438,11 @@ class MainScreen(object):
 
             # check the status of the game (win / lose)
             # winning: if the dog succeeded going 100 pixel further than the last stage item
+            # TODO: add a flag or a person or something to indicate end point, after the demo.
             if self.stage.checkWin(self.deafy.rect.left+self.visible_xrange[0]):
                 print 'You win!'
+                self.deafy.play_sound(self.deafy._DEAFY_VICTORY_SOUND_INDEX)
+                time.sleep(5)  # TODO: Sleep this amount of seconds to make sure sound finishes playing. Improve this part after the demo to add victory screen and fail screen.
                 going = False
             # lose if the dog falls completely outside the screen
             if self.deafy.rect.top > SCREEN_HEIGHT:
@@ -449,14 +462,18 @@ class MainScreen(object):
             pygame.display.update(dirty)
 
             # display dialog
-            if self.dialog_frame < DIALOG_FRAME_COUNT:
+            if self.is_dialog_active:
+                # TODO: minor detail but it might be better to keep one single dialog object instead of creating a
+                # new object every time. So like self.dialog.update_frame(self.dialog_frame) or something.
                 self.dialog = Dialog(self.dialog_frame)
+                # TODO: maybe use the self.rect and self.update instead. That is the standard way to display a sprite.
+                # Now the display blit is handled manually. Add it to a group and use methods like above to make sure
+                # it is drawn after everything else. The blinking is likely caused by this bug.
                 self.display.blit(self.dialog.image, (SCREEN_WIDTH-320, SCREEN_HEIGHT-120))
 
             # enable camera only after all dialog frames are shown
-            if ARGS.camera and self.dialog_frame >= DIALOG_FRAME_COUNT:
+            if ARGS.camera and not self.is_dialog_active:
                 self.blit_camera_shot(self.camera_default_display_location)
-
 
             # dirty = self.all.draw(self.display)
             # pygame.display.update(dirty)
@@ -472,7 +489,9 @@ class Deafy(pygame.sprite.Sprite):
     _DEAFY_LIE_DOWN_IMAGE_INDEX = 1
     _DEAFY_RUN_IMAGE_START_INDEX = 2
     _DEAFY_RUN_IMAGE_END_INDEX = 3
+    _DEAFY_FAIL_INDEX = 4
     _DEAFY_JUMP_SOUND_INDEX = 1
+    _DEAFY_VICTORY_SOUND_INDEX = 1
     def __init__(self, pos=SCREEN_RECT.bottomright):
         # Notice that bottomright instead of bottomleft is used for deafy, because deafy is facing right.
         pygame.sprite.Sprite.__init__(self, self.containers)
@@ -486,12 +505,15 @@ class Deafy(pygame.sprite.Sprite):
         self.is_lying = False
         self.is_running = (INITIAL_DX < 0)
         self.gravity = INITIAL_GRAVITY
+        self.failed = False  # If true, disable user control.
 
     def move(self, pos):
         self.rect= self.image.get_rect(bottomright=pos)
         self.rect = self.rect.clamp(SCREEN_RECT)
 
     def jump(self, speed=None):
+        if self.failed:
+            return
         if self.jump_charge > 0:
             self.is_jumping = True
             # if the object was falling too fast, make the second jump weaker but still allow it to jump.
@@ -504,7 +526,7 @@ class Deafy(pygame.sprite.Sprite):
             self.y_speed = max(10, self.y_speed + d_jump_speed)
             self.jump_charge -= 1
             # Play sound effect
-            self.sounds[self._DEAFY_JUMP_SOUND_INDEX].play()
+            self.play_sound(self._DEAFY_JUMP_SOUND_INDEX)
         else:
             print("Not enough jump charge.")  # For debugging.
 
@@ -532,12 +554,21 @@ class Deafy(pygame.sprite.Sprite):
             self.image = self.images[self.current_image_index]
             self.rect = self.image.get_rect(bottomright=self.rect.bottomright)
 
+    def play_sound(self, sound_index):
+        if sound_index >= len(self.sounds):
+            raise IndexError("Sound index %d exceeding number of sounds stored (%d)." %(sound_index, len(self.sounds)))
+        self.sounds[sound_index].play()
+
     def lie_down(self):
+        if self.failed:
+            return
         if not self.is_lying and not self.is_jumping:
             self.is_lying = True
             self.change_image(self._DEAFY_LIE_DOWN_IMAGE_INDEX)
 
     def stand_up(self):
+        if self.failed:
+            return
         if self.is_lying:
             self.is_lying = False
             self.change_image(self._DEAFY_STAND_IMAGE_INDEX)
@@ -569,6 +600,7 @@ class Deafy(pygame.sprite.Sprite):
         :return: Nothing
         """
         self.gravity = max(MIN_GRAVITY,new_gravity)
+
 
 
 class BackgroundObjects(pygame.sprite.Sprite):
