@@ -52,14 +52,14 @@ INITIAL_GRAVITY = 2  # pixel/second^2
 MAX_JUMP_CHARGE = 1  # The number of time the object can jump
 INITIAL_DX = 0
 STD_DX = -1
-MOUTH_SCORE_JUMP_LOWER_THRESHOLD = 0.5  # The mouth score has to be at least this big for Deafy to start jumping.
+MOUTH_SCORE_JUMP_LOWER_THRESHOLD = 0.6  # The mouth score has to be at least this big for Deafy to start jumping.
 # The jump speed is the facial feature score times this factor. So fo example if the facial feature is ratio
 # between mouth height and mouth width, then the jump speed is ratio * JUMP_SPEED_FACTOR pixels per second.
 JUMP_SPEED_FACTOR = 30
 # The gravity factor works similarly to JUMP_SPEED_FACTOR. The gravity is decreased by this factor when feature score
 # exceeds the lower threshold, so that when the mouth opens larger, Deafy falls slower.
 GRAVITY_FACTOR = 1
-MIN_GRAVITY = 0.5
+MIN_GRAVITY = 2.0 # 0.5
 # This controls the speed at which Deafy moves. (Temporary solution for the demo)
 MOUTH_SCORE_SPEED_THRESHOLDS = [(0.3, -2), (0.4, -4), (0.6, -6), (0.8, -8)]
 
@@ -491,7 +491,7 @@ class Deafy(pygame.sprite.Sprite):
     _DEAFY_RUN_IMAGE_END_INDEX = 3
     _DEAFY_FAIL_INDEX = 4
     _DEAFY_JUMP_SOUND_INDEX = 1
-    _DEAFY_VICTORY_SOUND_INDEX = 1
+    _DEAFY_VICTORY_SOUND_INDEX = 2
     def __init__(self, pos=SCREEN_RECT.bottomright):
         # Notice that bottomright instead of bottomleft is used for deafy, because deafy is facing right.
         pygame.sprite.Sprite.__init__(self, self.containers)
