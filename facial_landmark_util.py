@@ -13,10 +13,17 @@ import dlib
 import cv2
 import os
 from PIL import Image
+from scipy.spatial import distance as dist
 
 import pygame
 import pygame.camera
 from pygame.locals import *
+
+# Constants
+# grab the indexes of the facial landmarks for the left and
+# right eye, respectively
+(lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
+(rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
 def tuple_to_rectangle(tup):
     if len(tup) != 4:
@@ -109,3 +116,31 @@ def get_mouth_left_corner_score(facial_features):
     # Now get the distance from 4 to 49.
     d = float(abs(facial_features[4,0] - facial_features[49,0]))
     return 1.0 - d / w
+
+
+def eye_aspect_ratio(eye):
+    # Adapted from http://www.pyimagesearch.com/2017/04/24/eye-blink-detection-opencv-python-dlib/
+    # compute the euclidean distances between the two sets of
+    # vertical eye landmarks (x, y)-coordinates
+    A = dist.euclidean(eye[1], eye[5])
+    B = dist.euclidean(eye[2], eye[4])
+
+    # compute the euclidean distance between the horizontal
+    # eye landmark (x, y)-coordinates
+    C = dist.euclidean(eye[0], eye[3])
+
+    # compute the eye aspect ratio
+    ear = (A + B) / (2.0 * C)
+
+    # return the eye aspect ratio
+    return ear
+
+def get_blink_score(facial_features):
+    leftEye = facial_features[lStart:lEnd]
+    rightEye = facial_features[rStart:rEnd]
+    leftEAR = eye_aspect_ratio(leftEye)
+    rightEAR = eye_aspect_ratio(rightEye)
+
+    # average the eye aspect ratio together for both eyes
+    ear = (leftEAR + rightEAR) / 2.0
+    return ear
