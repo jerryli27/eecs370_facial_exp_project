@@ -276,7 +276,7 @@ class MainScreen(object):
         # to track of which dialog frame shold be rendered
         self.dialog_frame = 0
         # To trach whether dialog is displayed now. If so, disable user control.
-        self.is_dialog_active = True
+        self.is_dialog_active = False  # Disabled for demo purpose. Maybe add back later.
 
         # Facial feature detection things.
         self.blink_counter = 0
@@ -554,6 +554,7 @@ class MainScreen(object):
             # enable camera only after all dialog frames are shown
             if ARGS.camera and not self.is_dialog_active:
                 self.blit_camera_shot(self.camera_default_display_location)
+
 
             # dirty = self.all.draw(self.display)
             # pygame.display.update(dirty)
