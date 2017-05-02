@@ -36,12 +36,12 @@ CAMERA_DISPLAY_WIDTH = SCREEN_WIDTH / 4
 CAMERA_DISPLAY_SIZE = (CAMERA_DISPLAY_WIDTH, CAMERA_DISPLAY_HEIGHT)
 BACKGROUND_OBJECT_HEIGHT = 32
 BACKGROUND_OBJECT_WIDTH = 32
-MAX_JUMP_CHARGE = 2  # The number of time the object can jump
 DIALOG_FRAME_COUNT = 4 # The number of total dialog frames
 BULLET_SPEED = 8
 
 INITIAL_GRAVITY = 2  # pixel/second^2
 MAX_JUMP_CHARGE = 1  # The number of time the object can jump
+MAX_JUMP_SPEED = 30
 INITIAL_DX = 0
 STD_DX = -1
 # The gravity factor works similarly to BLINK_JUMP_SPEED_FACTOR. The gravity is decreased by this factor when feature score
@@ -427,7 +427,7 @@ class MainScreen(object):
                         # if the eyes were closed for a sufficient number of frames then jump proportional to the
                         # number of frames that the eyes are closed.
                         if self.blink_counter >= EYE_AR_CONSEC_FRAMES:
-                            self.deafy.jump(self.blink_counter * BLINK_JUMP_SPEED_FACTOR)
+                            self.deafy.jump(min(self.blink_counter * BLINK_JUMP_SPEED_FACTOR,MAX_JUMP_SPEED))
                             self.blink_counter = 0
 
 
