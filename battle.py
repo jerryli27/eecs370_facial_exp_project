@@ -203,6 +203,9 @@ class MainScreen(object):
         dialog.Dialog.containers = self.all
         Bullet.containers = self.all, self.front_group
 
+
+    def init_battle(self):
+
         # # initialize stage
         # self.stage = Stage(num=1)
         # self.current_items = []
@@ -233,6 +236,7 @@ class MainScreen(object):
         # Facial feature detection things.
         self.blink_counter = 0
         self.deafy_bullet_need_recharge = False
+
 
     def init_cams(self, which_cam_idx):
 
@@ -319,7 +323,7 @@ class MainScreen(object):
         return
 
     def main(self,):
-
+        self.init_battle()
         going = True
         self.clock = pygame.time.Clock()
         while going:
@@ -423,10 +427,12 @@ class MainScreen(object):
                     # Otherwise the side that didn't get hit wins.
                     if items_hit[0] == self.deafy:
                         print('Deafy got hit. Cat wins!')
-                        going = False
+                        time.sleep(3)
+                        self.init_battle()
                     else:
                         print('Cat got hit. Deafy wins!')
-                        going = False
+                        time.sleep(3)
+                        self.init_battle()
 
             # Only keep the not destroyed objects.
             self.bullets = [bullet for bullet in self.bullets if not bullet.destroyed]
