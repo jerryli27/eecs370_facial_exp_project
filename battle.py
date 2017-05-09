@@ -14,6 +14,12 @@ from pygame.locals import *
 from facial_landmark_util import FacialLandmarkDetector, get_mouth_open_score, get_blink_score
 from sprite_sheet import SpriteSheet
 
+from constants import *
+import dialog
+from bullet import *
+from obstacle import *
+from deafy_cat import *
+
 
 # Command line argument parser.
 parser = argparse.ArgumentParser()
@@ -24,63 +30,7 @@ parser.set_defaults(camera=True)
 
 ARGS = parser.parse_args()
 
-# game constants
-SCREEN_HEIGHT=480
-SCREEN_WIDTH=640
-SCREEN_RECT= Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-FACIAL_LANDMARK_PREDICTOR_WIDTH = 320
-CAMERA_INPUT_HEIGHT = 480
-CAMERA_INPUT_WIDTH = 640
-CAMERA_DISPLAY_HEIGHT = SCREEN_HEIGHT / 4
-CAMERA_DISPLAY_WIDTH = SCREEN_WIDTH / 4
-CAMERA_DISPLAY_SIZE = (CAMERA_DISPLAY_WIDTH, CAMERA_DISPLAY_HEIGHT)
-BACKGROUND_OBJECT_HEIGHT = 32
-BACKGROUND_OBJECT_WIDTH = 32
-DIALOG_FRAME_COUNT = 4 # The number of total dialog frames
-BULLET_SPEED = 8
 
-INITIAL_GRAVITY = 2  # pixel/second^2
-MAX_JUMP_CHARGE = 1  # The number of time the object can jump
-MAX_JUMP_SPEED = 30
-INITIAL_DX = 0
-STD_DX = -1
-# The gravity factor works similarly to BLINK_JUMP_SPEED_FACTOR. The gravity is decreased by this factor when feature score
-# exceeds the lower threshold, so that when the mouth opens larger, Deafy falls slower.
-GRAVITY_FACTOR = 1
-MIN_GRAVITY = 2.0 # 0.5
-
-
-# UI object specifics
-MAX_FPS = 30
-# The y goes from top to bottom starting at 0.
-GROUND_LEVEL = SCREEN_HEIGHT*11/15
-GROUND_Y_LIMITS = (GROUND_LEVEL,SCREEN_HEIGHT)
-SKY_Y_LIMITS = (0,GROUND_LEVEL)
-DEAFY_SCREEN_POS = (SCREEN_WIDTH/8, GROUND_LEVEL)
-CAT_SCREEN_POS = (SCREEN_WIDTH*7/8, GROUND_LEVEL)
-BULLET_SIZE = 4
-# Define Colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
-YELLOW = (255, 255, 0)
-
-# Facial landmark constants
-MOUTH_SCORE_SHOOT_THRESHOLD = 1.5  # The mouth score has to be at least this big for Deafy to start shooting.
-MOUTH_SCORE_RECHARGE_THRESHOLD = 0.4  # The mouth score has to be at least this big for Deafy to start shooting.
-# The jump speed is the facial feature score times this factor: score * BLINK_JUMP_SPEED_FACTOR pixels per second.
-BLINK_JUMP_SPEED_FACTOR = 3
-# This controls the speed at which Deafy moves. (Temporary solution for the demo)
-MOUTH_SCORE_SPEED_THRESHOLDS = [(0.3, -2), (0.4, -4), (0.6, -6), (0.8, -8)]
-# define two constants, one for the eye aspect ratio to indicate
-# blink and then a second constant for the number of consecutive
-# frames the eye must be below the threshold
-EYE_AR_THRESH = 0.3
-EYE_AR_CONSEC_FRAMES = 3
-
-assert SCREEN_HEIGHT % BACKGROUND_OBJECT_HEIGHT == 0 and SCREEN_WIDTH % BACKGROUND_OBJECT_WIDTH == 0
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 
@@ -142,7 +92,8 @@ def fire_bullet(object_firing, object_orientation, bullet_speed=BULLET_SPEED, bu
         bullet_location = (bullet_location[0] + BULLET_SIZE, bullet_location[1])
         return Bullet(bullet_speed, pos=bullet_location, color=bullet_color,bullet_size=BULLET_SIZE)
 
-class Item(object):
+
+class StageItem(object):
 
     def __init__(self, xstart, height, width, type):
         self.xstart = xstart
@@ -168,7 +119,7 @@ class Stage(object):
         stage_layout.sort(key=lambda n:n[0])
         self.stage_layout = []
         for s in stage_layout:
-            self.stage_layout.append(Item(s[0], s[1], s[2], s[3]))
+            self.stage_layout.append(StageItem(s[0], s[1], s[2], s[3]))
         self.next = 0
         self.length = len(self.stage_layout)
         last = self.stage_layout[-1]
@@ -189,6 +140,8 @@ class Stage(object):
     def checkWin(self, x):
         return x > self.finish_line
 
+
+
 class MainScreen(object):
 
     size = ( SCREEN_WIDTH, SCREEN_HEIGHT )
@@ -203,6 +156,7 @@ class MainScreen(object):
         # Initialize camera
         if ARGS.camera:
             self.init_cams(0)
+            self.fld = FacialLandmarkDetector(SCREEN_WIDTH, SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
 
         # Load graphics
         deafy_sheet = SpriteSheet("data/Undertale_Annoying_Dog.png")
@@ -246,7 +200,7 @@ class MainScreen(object):
         GroundObstacle.containers = self.all, self.obstacle_group
         CatObstacle.containers = self.all, self.front_group
         CatOpponent.containers = self.all, self.front_group, self.player_group
-        Dialog.containers = self.all
+        dialog.Dialog.containers = self.all
         Bullet.containers = self.all, self.front_group
 
         # # initialize stage
@@ -268,8 +222,6 @@ class MainScreen(object):
         self.cat_obstacles = []
         self.bullets = []
 
-        # Now initialize the FacialLandmarkDetector
-        self.fld = FacialLandmarkDetector(SCREEN_WIDTH,SCREEN_HEIGHT,FACIAL_LANDMARK_PREDICTOR_WIDTH)
         self.dx = INITIAL_DX
         self.visible_xrange = [0, SCREEN_WIDTH]
 
@@ -545,7 +497,7 @@ class MainScreen(object):
             if self.is_dialog_active:
                 # TODO: minor detail but it might be better to keep one single dialog object instead of creating a
                 # new object every time. So like self.dialog.update_frame(self.dialog_frame) or something.
-                self.dialog = Dialog(self.dialog_frame)
+                self.dialog = dialog.Dialog(self.dialog_frame)
                 # TODO: maybe use the self.rect and self.update instead. That is the standard way to display a sprite.
                 # Now the display blit is handled manually. Add it to a group and use methods like above to make sure
                 # it is drawn after everything else. The blinking is likely caused by this bug.
@@ -565,317 +517,6 @@ class MainScreen(object):
         # Sleeps for 5 seconds before quitting
         time.sleep(5)
 
-class Deafy(pygame.sprite.Sprite):
-
-    images = []
-    sounds = []
-    _STAND_IMAGE_INDEX = 0
-    _LIE_DOWN_IMAGE_INDEX = 1
-    _RUN_IMAGE_START_INDEX = 2
-    _RUN_IMAGE_END_INDEX = 3
-    _FAIL_INDEX = 4
-    _JUMP_SOUND_INDEX = 1
-    _VICTORY_SOUND_INDEX = 2
-    def __init__(self, pos=SCREEN_RECT.bottomright):
-        # Notice that bottomright instead of bottomleft is used for deafy, because deafy is facing right.
-        pygame.sprite.Sprite.__init__(self, self.containers)
-        self.current_image_index = self._RUN_IMAGE_START_INDEX
-        self.image = self.images[self.current_image_index]
-        self.rect = self.image.get_rect(bottomright=pos)
-        self.y_speed = 0
-        self.ground_level = pos[1]
-        self.is_jumping = False
-        self.jump_charge = MAX_JUMP_CHARGE  # The number of time the object can jump
-        self.is_lying = False
-        self.is_running = (INITIAL_DX < 0)
-        self.gravity = INITIAL_GRAVITY
-        self.failed = False  # If true, disable user control.
-
-    def move(self, pos):
-        self.rect= self.image.get_rect(bottomright=pos)
-        self.rect = self.rect.clamp(SCREEN_RECT)
-
-    def jump(self, speed=None):
-        if self.failed:
-            return
-        if self.jump_charge > 0:
-            self.is_jumping = True
-            if speed is None:
-                d_jump_speed = 25
-            else:
-                d_jump_speed = speed
-
-            self.y_speed = max(10, self.y_speed + d_jump_speed)
-            self.jump_charge -= 1
-            # Play sound effect
-            self.play_sound(self._JUMP_SOUND_INDEX)
-        else:
-            print("Not enough jump charge.")  # For debugging.
-
-    def fall(self):
-        if not self.is_jumping:
-            self.is_jumping = True
-            self.jump_charge = 0
-
-    def update(self):
-        if self.is_jumping:
-            self.y_speed -= self.gravity
-            self.rect.move_ip(0,-self.y_speed)
-        if self.is_running:
-            self.run_next_frame()
-
-    def land_on_ground(self, ground):
-        self.rect.bottom = ground
-        self.is_jumping = False
-        self.y_speed = 0
-        self.jump_charge = MAX_JUMP_CHARGE
-
-    def change_image(self, new_image_index):
-        if self.current_image_index != new_image_index:
-            self.current_image_index = new_image_index
-            self.image = self.images[self.current_image_index]
-            self.rect = self.image.get_rect(bottomright=self.rect.bottomright)
-
-    def play_sound(self, sound_index):
-        if sound_index >= len(self.sounds):
-            raise IndexError("Sound index %d exceeding number of sounds stored (%d)." %(sound_index, len(self.sounds)))
-        self.sounds[sound_index].play()
-
-    def lie_down(self):
-        if self.failed:
-            return
-        if not self.is_lying and not self.is_jumping:
-            self.is_lying = True
-            self.change_image(self._LIE_DOWN_IMAGE_INDEX)
-
-    def stand_up(self):
-        if self.failed:
-            return
-        if self.is_lying:
-            self.is_lying = False
-            self.change_image(self._STAND_IMAGE_INDEX)
-
-    def start_running(self):
-        # if self.is_lying:
-        #     print("Warning! Deafy attempted to start_running while it's lying down.")
-        # else:
-        #     self.is_running = True
-        self.is_running = True
-        self.change_image(self._RUN_IMAGE_START_INDEX)
-
-    def stop_running(self):
-        # Only stop animation when it's not jumping.
-        if not self.is_jumping:
-            self.is_running = False
-            self.change_image(self._STAND_IMAGE_INDEX)
-
-    def run_next_frame(self):
-        new_image_index = self.current_image_index + 1
-        if new_image_index > self._RUN_IMAGE_END_INDEX:
-            new_image_index = self._RUN_IMAGE_START_INDEX
-        self.change_image(new_image_index)
-
-    def set_gravity(self, new_gravity):
-        """
-        Modifies self.gravity to be the new gravity. Gravity cannot be lower than 0.
-        :param new_gravity:
-        :return: Nothing
-        """
-        self.gravity = max(MIN_GRAVITY,new_gravity)
-
-    def set_failed(self, failed):
-        if failed:
-            self.failed = True
-            self.is_running = False
-            self.is_jumping = False
-            self.change_image(self._FAIL_INDEX)
-
-
-
-class BackgroundObjects(pygame.sprite.Sprite):
-    images = []
-    def __init__(self, dx=INITIAL_DX, pos=SCREEN_RECT.bottomleft, destroy_when_oos=False):
-        """
-
-        :param pos: The initial position of the object.
-        :param destroy_when_oos: If true, the object self destroys when it is out of the screen. If False, the object
-        wraps around the screen when it is out of the screen.
-        """
-        pygame.sprite.Sprite.__init__(self, self.containers)
-        self.current_image_index = 0
-        self.image = self.images[self.current_image_index]
-        self.rect = self.image.get_rect(bottomleft=pos)
-        self.dx = dx
-        self.destroy_when_oos=destroy_when_oos
-        self.destroyed = False
-
-
-    def update(self):
-        # Makes the enemy move in the x direction.
-        self.rect.move_ip(self.dx, 0)
-
-        # If the enemy is outside of the platform, make it appear on the other side of the screen
-        if self.rect.left > SCREEN_RECT.right or self.rect.right < SCREEN_RECT.left:
-            if self.destroy_when_oos:
-                self.handle_oos()
-                return
-            else:
-                if self.rect.left > SCREEN_RECT.right:
-                    # Move the sprite towards the left n pixels where n = width of platform + width of object.
-                    self.rect.move_ip(SCREEN_RECT.left-SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH,0)
-                elif self.rect.right < SCREEN_RECT.left:
-                    # Move the sprite towards the right n pixels where n = width of platform + width of object.
-                    self.rect.move_ip(SCREEN_RECT.right-SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH,0)
-                else:
-                    raise AssertionError("This line should not be reached. The object should only move left and right.")
-
-
-    def set_dx(self, dx):
-        self.dx = dx
-
-    def plus_dx(self, ddx):
-        self.dx += ddx
-
-    def change_image(self, new_image_index):
-        if self.current_image_index != new_image_index:
-            self.current_image_index = new_image_index
-            self.image = self.images[self.current_image_index]
-            self.rect = self.image.get_rect(bottomleft=self.rect.bottomleft)
-
-    def handle_oos(self):
-        if self.destroy_when_oos:
-            self.destroyed = True
-            self.kill()
-
-
-class Ground(BackgroundObjects):
-    pass
-
-class Sky(BackgroundObjects):
-    pass
-
-
-class Bullet(BackgroundObjects):
-    """ This class represents the bullet . """
-
-    def __init__(self, dx=INITIAL_DX, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
-        # Call the parent class (Sprite) constructor
-        pygame.sprite.Sprite.__init__(self, self.containers)
-        self.image = pygame.Surface([bullet_size, bullet_size])
-        self.image.fill(color)
-        self.rect = self.image.get_rect(bottomleft=pos)
-        self.dx = dx
-        self.destroy_when_oos=destroy_when_oos
-        self.destroyed = False
-
-    def items_hit(self, block_list):
-        # See if it hit a block
-        block_hit_list = pygame.sprite.spritecollide(self, block_list, True)
-        return block_hit_list
-
-class GroundObstacle(BackgroundObjects):
-
-    _GROUND_IMAGE_INDEX = 0
-    _GAP_IMAGE_INDEX = 1
-
-    def __init__(self, item_type, dx=INITIAL_DX, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True):
-        super(GroundObstacle, self).__init__(dx, pos, destroy_when_oos)
-        if item_type == self._GROUND_IMAGE_INDEX or item_type == self._GAP_IMAGE_INDEX:
-            self.change_image(item_type)
-
-    def update(self):
-        before = self.rect.left, self.rect.right
-        super(GroundObstacle, self).update()
-        after = self.rect.left, self.rect.right
-        # if before != after:
-        #     print before, after
-
-    def handle_oos(self):
-        # only kill the obstacle when it reaches the far left
-        if self.rect.right < SCREEN_RECT.left:
-            self.kill()
-
-
-
-class CatObstacle(BackgroundObjects):
-    _CAT_SIT_IMAGE_INDEX = 0
-    _CAT_RUN_IMAGE_START_INDEX = 1
-    _CAT_RUN_IMAGE_END_INDEX = 4
-
-    def __init__(self, dx=STD_DX, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True):
-        super(CatObstacle, self).__init__(dx, pos,destroy_when_oos)
-        if len(self.images) < (self._CAT_RUN_IMAGE_END_INDEX + 1):
-            raise AssertionError("Wrong number of images loaded for class CatObstacle. "
-                                 "It should be more than %d but it is now %d"
-                                 %((self._CAT_RUN_IMAGE_END_INDEX + 1), len(self.images)))
-
-    def update(self):
-        super(CatObstacle, self).update()
-        if self.dx < 0:
-            # is moving
-            self.run_next_frame()
-        else:
-            self.change_to_sit_frame()
-
-    def run_next_frame(self):
-        new_image_index = self.current_image_index + 1
-        if new_image_index > self._CAT_RUN_IMAGE_END_INDEX:
-            new_image_index = self._CAT_RUN_IMAGE_START_INDEX
-        self.change_image(new_image_index)
-
-    def change_to_sit_frame(self):
-        self.change_image(self._CAT_SIT_IMAGE_INDEX)
-
-class CatOpponent(Deafy):
-    pass
-
-class Dialog(pygame.sprite.Sprite):
-    width = 300
-    height = 100
-    white = (255,255,255)
-    black = (0,0,0)
-
-    text_group = []
-    texts = ['Deafy hate cats', 'your help. He can not hear']
-    texts2 = ['but has a sharp vision. Use your facial ', 'expression, specifically']
-    texts3 = ['the extent in which you open your ', 'mouth to control Deafy\'s running']
-    texts4 = ['and running and help guide him home.', ' ']
-    text_group.append(texts)
-    text_group.append(texts2)
-    text_group.append(texts3)
-    text_group.append(texts4)
-
-    def __init__(self, diglog_index):
-        pygame.font.init()
-        myfont = pygame.font.SysFont('Comic Sans MS', 22)
-
-        self.image = pygame.Surface([Dialog.width, Dialog.height])
-        self.image.fill(Dialog.black)
-        self.rect = self.image.get_rect()
-
-        border_width = 5
-        # horizontal border
-        h_border = pygame.Surface([Dialog.width, border_width])
-        h_border.fill(Dialog.white)
-        # vertical border
-        v_border = pygame.Surface([border_width, Dialog.height])
-        v_border.fill(Dialog.white)
-
-        # render current frame text
-        current_text = Dialog.text_group[diglog_index]
-        distance = 0
-        for i in range(len(current_text)):
-            textsurface = myfont.render(current_text[i], False, Dialog.white)
-            self.image.blit(textsurface, (15, 15 + distance))
-            distance += (i+1) * 15
-        space_indicator = myfont.render('>>> Space', False, Dialog.white)
-        self.image.blit(space_indicator, (200, 15 + distance))
-
-        # add border to each edge of the image
-        self.image.blit(v_border, (0,0))
-        self.image.blit(v_border, (Dialog.width-border_width,0))
-        self.image.blit(h_border, (0,0))
-        self.image.blit(h_border, (0, Dialog.height-border_width))
 
 
 def main():
