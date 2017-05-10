@@ -1,5 +1,6 @@
 from constants import *
 from background_objects import *
+from bullet import *
 
 class Deafy(pygame.sprite.Sprite):
 
@@ -125,6 +126,28 @@ class Deafy(pygame.sprite.Sprite):
             self.is_running = False
             self.is_jumping = False
             self.change_image(self._FAIL_INDEX)
+
+    def emit_bullets(self, bullet_type, object_orientation, bullet_speed=BULLET_SPEED, bullet_color=BLACK):
+        if bullet_speed <= 0:
+            raise AttributeError("Bullet speed must be positive.")
+        if object_orientation == "LEFT":
+            bullet_location = self.rect.midleft
+            # Move the bullet a little to avoid hiting the object firing the bullet.
+            bullet_location = (bullet_location[0]-BULLET_SIZE, bullet_location[1])
+            bullet_speed = -bullet_speed
+        else:
+            bullet_location = self.rect.midright
+            # Move the bullet a little to avoid hiting the object firing the bullet.
+            bullet_location = (bullet_location[0] + BULLET_SIZE, bullet_location[1])
+
+        if bullet_type == "NORMAL":
+            return NormalBullet(dx=bullet_speed, pos=bullet_location, color=bullet_color,bullet_size=BULLET_SIZE)
+        if bullet_type == "BOUNCE":
+            return BounceBullet(dx=bullet_speed, pos=bullet_location, color=bullet_color,bullet_size=BULLET_SIZE)
+        if bullet_type == "SPREAD":
+            spread_bullets = SpreadBullets(object_orientation, bullet_speed, pos=bullet_location, color=bullet_color, bullet_size=BULLET_SIZE)
+            bullets_list = spread_bullets.create_bullets()
+            return bullets_list
 
 
 class CatOpponent(Deafy):

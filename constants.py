@@ -14,11 +14,13 @@ BACKGROUND_OBJECT_HEIGHT = 32
 BACKGROUND_OBJECT_WIDTH = 32
 DIALOG_FRAME_COUNT = 4 # The number of total dialog frames
 BULLET_SPEED = 8
+BULLET_BOUNCE_H_SPEED = 3
 
 INITIAL_GRAVITY = 2  # pixel/second^2
 MAX_JUMP_CHARGE = 1  # The number of time the object can jump
 MAX_JUMP_SPEED = 30
 INITIAL_DX = 0
+INITIAL_DY = 0
 STD_DX = -1
 # The gravity factor works similarly to BLINK_JUMP_SPEED_FACTOR. The gravity is decreased by this factor when feature score
 # exceeds the lower threshold, so that when the mouth opens larger, Deafy falls slower.

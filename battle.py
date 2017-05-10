@@ -345,6 +345,16 @@ class MainScreen(object):
                             self.dialog_frame += 1
                             if self.dialog_frame >= DIALOG_FRAME_COUNT:
                                 self.is_dialog_active = False
+                    if e.key == K_a:
+                        # emit normal bullet
+                        self.bullets.append(self.deafy.emit_bullets("NORMAL", "RIGHT", bullet_color=YELLOW))
+                    if e.key == K_b:
+                        # emit bounce bullet
+                        self.bullets.append(self.deafy.emit_bullets("BOUNCE", "RIGHT", bullet_color=BLUE))
+                    if e.key == K_s:
+                        bullets = self.deafy.emit_bullets("SPREAD", "RIGHT", bullet_color=RED)
+                        for bullet in bullets:
+                            self.bullets.append(bullet)
 
 
             if ARGS.camera and not self.is_dialog_active:
