@@ -33,6 +33,10 @@ class BounceBullet(Bullet):
         # print "Bullet bounce back when hit the BATTLE_SCREEN_RECT", self.dy
         self.rect.move_ip(self.dx, self.dy)
 
+        if self.rect.bottom >= BATTLE_SCREEN_RECT.bottom:
+            self.handle_oos()
+            return
+
         # if bullet hits the BATTLE_SCREEN_RECT, set the speed in oppositive direction
         if self.rect.right >= BATTLE_SCREEN_RECT.right or self.rect.left <= BATTLE_SCREEN_RECT.left:
             self.dy = random.randint(-BULLET_BOUNCE_H_SPEED, BULLET_BOUNCE_H_SPEED)
@@ -64,7 +68,7 @@ class SpreadBullets(Bullet):
 
 
         # self.image = pygame.Surface([bullet_size, bullet_size])
-        # self.image.fill(color)
+        # self.image.fill(_HP_COLOR)
         # self.rect = self.image.get_rect(bottomleft=pos)
 
 
@@ -76,19 +80,10 @@ class SpreadBullets(Bullet):
         for bullet in self.bullets:
             bullet.rect.move_ip(self.dx, self.dy)
 
-            if bullet.rect.left > BATTLE_SCREEN_RECT.right or bullet.rect.right < BATTLE_SCREEN_RECT.left:
-                if bullet.destroy_when_oos:
-                    bullet.handle_oos()
-                    return
-                else:
-                    if bullet.rect.left > BATTLE_SCREEN_RECT.right:
-                        # Move the sprite towards the left n pixels where n = width of platform + width of object.
-                        bullet.rect.move_ip(BATTLE_SCREEN_RECT.left - BATTLE_SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH, 0)
-                    elif bullet.rect.right < BATTLE_SCREEN_RECT.left:
-                        # Move the sprite towards the right n pixels where n = width of platform + width of object.
-                        bullet.rect.move_ip(BATTLE_SCREEN_RECT.right - BATTLE_SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH, 0)
-                    else:
-                        raise AssertionError("This line should not be reached. The object should only move left and right.")
+            if not BATTLE_SCREEN_RECT.colliderect(self.rect):
+                bullet.handle_oos()
+                self.bullets.remove(bullet)
+                return
 
     def items_hit(self, block_list):
         # See if it hit a block

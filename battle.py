@@ -19,6 +19,7 @@ import dialog
 from bullet import *
 from obstacle import *
 from deafy_cat import *
+from hp_bar import *
 
 
 # Command line argument parser.
@@ -76,7 +77,7 @@ def fire_bullet(object_firing, object_orientation, bullet_speed=BULLET_SPEED, bu
     :param object_firing: The object firing the bullet. Must have the .rect attribute.
     :param object_orientation: "LEFT" or "RIGHT"
     :param bullet_speed: A positive number, it represents the speed of the bullet independent of its direction.
-    :param bullet_color: A tuple representing its color.
+    :param bullet_color: A tuple representing its _HP_COLOR.
     :return:
     """
     if bullet_speed <= 0:
@@ -203,6 +204,7 @@ class MainScreen(object):
         CatOpponent.containers = self.all, self.front_group, self.player_group
         dialog.Dialog.containers = self.all
         Bullet.containers = self.all, self.front_group
+        HPBar.containers = self.all, self.background_group
 
 
     def init_battle(self):
@@ -247,6 +249,7 @@ class MainScreen(object):
         for b in self.bullets:
             b.kill()
         self.bullets = []
+
         # to track of which dialog frame shold be rendered
         self.dialog_frame = 0
         # To trach whether dialog is displayed now. If so, disable user control.
@@ -340,15 +343,23 @@ class MainScreen(object):
         for s in self.sky_sprites + self.ground_sprites + self.cat_obstacles + self.ground_obstacle_sprites:
             s.set_dx(self.dx)
 
-    def handle_game_over(self):
-        print 'Sorry, Game Over! :( '
-        return
 
     def main(self,):
         self.init_battle()
         going = True
         self.clock = pygame.time.Clock()
         while going:
+
+            if self.deafy.hp <= 0 or self.cat.hp <= 0:
+                if self.deafy.hp <= 0:
+                    print('Deafy ran out of hp. Cat wins!')
+                elif self.cat.hp <= 0:
+                    print('Cat ran out of hp. Deafy wins!')
+                else:
+                    print('Draw!')
+                time.sleep(3)
+                self.reset_battle()
+
             events = pygame.event.get()
             for e in events:
                 if e.type == QUIT or (e.type == KEYDOWN and e.key == K_ESCAPE):
@@ -375,7 +386,7 @@ class MainScreen(object):
                         # emit bounce bullet
                         self.bullets.append(self.deafy.emit_bullets("BOUNCE", "RIGHT", bullet_color=BLUE))
                     if e.key == K_s:
-                        bullets = self.deafy.emit_bullets("SPREAD", "RIGHT", bullet_color=RED)
+                        bullets = self.deafy.emit_bullets("SPREAD", "RIGHT", bullet_color=GREEN)
                         for bullet in bullets:
                             self.bullets.append(bullet)
 
@@ -433,88 +444,21 @@ class MainScreen(object):
             # DEBUG
             # print("Number of bullets : %d" %(len(self.bullets)))
             for bullet in self.bullets:
-
                 items_hit = bullet.items_hit(self.player_group)
-
+                # for item in items_hit:
+                #     item.set_failed(True)
                 for item in items_hit:
-                    item.set_failed(True)
-                if len(items_hit) >= 2:
-                    # If both got hit, draw
-                    print('Draw!')
-                    going = False
-                elif len(items_hit) == 1:
                     # Otherwise the side that didn't get hit wins.
-                    if items_hit[0] == self.deafy:
-                        print('Deafy got hit. Cat wins!')
-                        time.sleep(3)
-                        self.reset_battle()
+                    if item == self.deafy:
+                        self.deafy.take_damage(bullet)
                     else:
-                        print('Cat got hit. Deafy wins!')
-                        time.sleep(3)
-                        self.reset_battle()
+                        self.cat.take_damage(bullet)
+                    bullet.kill()
+                    self.bullets.remove(bullet)
+                    print('HP Now: Deafy(%d) - Cat(%d)' % (self.deafy.hp, self.cat.hp))
 
             # Only keep the not destroyed objects.
             self.bullets = [bullet for bullet in self.bullets if not bullet.destroyed]
-            # # based on dx, update the current screen state
-            # self.visible_xrange = map(lambda n:n-self.dx, self.visible_xrange)
-            # self.current_items = filter(lambda item:item.xstart + item.width >= self.visible_xrange[0], self.current_items)
-            # if self.dx != 0:
-            #     print self.visible_xrange
-            # while self.stage.view_next_item() and self.stage.view_next_item().xstart < self.visible_xrange[1]:
-            #     item = self.stage.pop_next_item()
-            #     self.current_items.append(item)
-            #     print self.visible_xrange, self.current_items
-            #     # create ui object for this item
-            #     xstart = item.xstart - self.visible_xrange[0]
-            #     if item.type == 0:
-            #         ystart = GROUND_LEVEL - item.height
-            #     if item.type == 1:
-            #         ystart = GROUND_LEVEL
-            #     ystart += BACKGROUND_OBJECT_HEIGHT
-            #     # how to show half sprites???
-            #     self.ground_obstacle_sprites.extend([
-            #         GroundObstacle(item_type=item.type, dx=self.dx, pos=(w, h))
-            #         for w in range(xstart, xstart+item.width, BACKGROUND_OBJECT_WIDTH)
-            #         for h in range(ystart, ystart+item.height, BACKGROUND_OBJECT_HEIGHT)])
-            #
-            #
-            # # update the current game state
-            # # update the ground level on the current screen
-            # ground_level = [GROUND_LEVEL for i in xrange(SCREEN_WIDTH)]
-            # for item in self.current_items:
-            #     item_left = item.xstart - self.visible_xrange[0]
-            #     for x in xrange(max(0, item_left), min(SCREEN_WIDTH, item_left+item.width)):
-            #         if item.type == 0:
-            #             ground_level[x] -= item.height
-            #         elif item.type == 1:
-            #             ground_level[x] += item.height
-            # # if the ground level in front of deafy is higher than itself, stop running.
-            # dleft, dright = self.deafy.rect.left, self.deafy.rect.right
-            # dbottom, dy = self.deafy.rect.bottom, self.deafy.y_speed
-            # for x in xrange(dright, dright-self.dx):
-            #     if self.deafy.rect.bottom > ground_level[x]:
-            #         self.set_dx(0)  # TODO: also disable set_dx() anywhere else.
-            #         self.deafy.failed = True  # Disable user control on deafy afterwards.
-            # # check the dog's motion with respect to the ground
-            # valid_ground_level = min(ground_level[dleft:dright])    # use the highest ground level
-            # if dbottom <= valid_ground_level <= dbottom-dy:
-            #     if self.deafy.y_speed <= 0:
-            #         self.deafy.land_on_ground(ground=valid_ground_level)
-            # elif dbottom-dy < valid_ground_level:
-            #     self.deafy.fall()
-
-            # # check the status of the game (win / lose)
-            # # winning: if the dog succeeded going 100 pixel further than the last stage item
-            # # TODO: add a flag or a person or something to indicate end point, after the demo.
-            # if self.stage.checkWin(self.deafy.rect.left+self.visible_xrange[0]):
-            #     print 'You win!'
-            #     self.deafy.play_sound(self.deafy._VICTORY_SOUND_INDEX)
-            #     time.sleep(5)  # TODO: Sleep this amount of seconds to make sure sound finishes playing. Improve this part after the demo to add victory screen and fail screen.
-            #     going = False
-            # # lose if the dog falls completely outside the screen
-            # if self.deafy.rect.top > SCREEN_HEIGHT:
-            #     self.handle_game_over()
-            #     going = False
 
 
             # clear/erase the last drawn sprites

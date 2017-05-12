@@ -3,7 +3,7 @@ from constants import *
 
 class BackgroundObjects(pygame.sprite.Sprite):
     images = []
-    def __init__(self, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft, destroy_when_oos=False):
+    def __init__(self, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft, destroy_when_oos=True):
         """
 
         :param pos: The initial position of the object.
@@ -24,8 +24,7 @@ class BackgroundObjects(pygame.sprite.Sprite):
         # Makes the enemy move in the x direction.
         self.rect.move_ip(self.dx, self.dy)
 
-        # If the enemy is outside of the platform, make it appear on the other side of the screen
-        if self.rect.left > BATTLE_SCREEN_RECT.right or self.rect.right < BATTLE_SCREEN_RECT.left:
+        if not BATTLE_SCREEN_RECT.colliderect(self.rect):
             if self.destroy_when_oos:
                 self.handle_oos()
                 return
