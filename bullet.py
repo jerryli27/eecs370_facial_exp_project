@@ -5,7 +5,8 @@ import random
 class Bullet(BackgroundObjects):
     """ This class represents the bullet . """
 
-    def __init__(self, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
+    def __init__(self, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft, ap=PLAYER_AP,
+                 destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
         # Call the parent class (Sprite) constructor
         pygame.sprite.Sprite.__init__(self, self.containers)
         self.image = pygame.Surface([bullet_size, bullet_size])
@@ -13,12 +14,13 @@ class Bullet(BackgroundObjects):
         self.rect = self.image.get_rect(bottomleft=pos)
         self.dx = dx
         self.dy = dy
+        self.ap = ap
         self.destroy_when_oos=destroy_when_oos
         self.destroyed = False
 
     def items_hit(self, block_list):
         # See if it hit a block
-        block_hit_list = pygame.sprite.spritecollide(self, block_list, True)
+        block_hit_list = pygame.sprite.spritecollide(self, block_list, False)
         return block_hit_list
 
 class NormalBullet(Bullet):
@@ -28,7 +30,7 @@ class BounceBullet(Bullet):
     """ Bullet bounce back when hit the BATTLE_SCREEN_RECT """
 
     def update(self):
-        print "Bullet bounce back when hit the BATTLE_SCREEN_RECT", self.dy
+        # print "Bullet bounce back when hit the BATTLE_SCREEN_RECT", self.dy
         self.rect.move_ip(self.dx, self.dy)
 
         # if bullet hits the BATTLE_SCREEN_RECT, set the speed in oppositive direction
@@ -40,19 +42,22 @@ class BounceBullet(Bullet):
 class SpreadBullets(Bullet):
     """ Bullets emits more bullets along the trajectory """
 
-    def __init__(self, bullet_orientation, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
+    def __init__(self, bullet_orientation, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft,
+                 ap=PLAYER_AP, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
         # Call the parent class (Sprite) constructor
         #pygame.sprite.Sprite.__init__(self, self.containers)
         self.bullet_orientation = bullet_orientation
         self.bullet_color = color
         self.bullets = []
-        self.bullets.append(NormalBullet(dx, dy, pos=pos, color=color, bullet_size=bullet_size))
+        self.bullets.append(NormalBullet(dx, dy, pos=pos, ap=ap, color=color, bullet_size=bullet_size))
 
         self.dx = dx
         self.dy = 1
+        self.ap = ap
         self.destroy_when_oos=destroy_when_oos
         self.destroyed = False
         self.num_frontmost = 2
+
 
         for i in range(self.num_frontmost):
             self.clone_bullets(i+1)
