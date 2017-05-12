@@ -238,6 +238,27 @@ class MainScreen(object):
         self.deafy_bullet_need_recharge = False
 
 
+    def reset_battle(self):
+        self.deafy.kill()
+        self.cat.kill()
+        self.deafy = Deafy(pos=DEAFY_SCREEN_POS)
+        self.cat = CatOpponent(pos=CAT_SCREEN_POS)
+        for b in self.bullets:
+            b.kill()
+        self.bullets = []
+        # to track of which dialog frame shold be rendered
+        self.dialog_frame = 0
+        # To trach whether dialog is displayed now. If so, disable user control.
+        self.is_dialog_active = False  # Disabled for demo purpose. Maybe add back later.
+
+        # Facial feature detection things.
+        self.blink_counter = 0
+        self.deafy_bullet_need_recharge = False
+
+        print "Game Reset."
+
+
+
     def init_cams(self, which_cam_idx):
 
         # gets a list of available cameras.
@@ -341,9 +362,6 @@ class MainScreen(object):
                             self.cat.jump()
                     if e.key ==K_LEFT:
                         self.bullets.append(fire_bullet(self.cat,"LEFT", bullet_color=RED))
-                    if e.key == K_c:
-                        # Generate a cat
-                        self.cat_obstacles.append(CatObstacle(dx=self.dx,pos=(SCREEN_WIDTH,DEAFY_SCREEN_POS[1])))
                     if e.key == K_SPACE:
                         if self.dialog_frame < DIALOG_FRAME_COUNT:
                             self.dialog_frame += 1
@@ -412,7 +430,7 @@ class MainScreen(object):
 
             # Now go through the bullets and see whether one hits anything
             # DEBUG
-            print("Number of bullets : %d" %(len(self.bullets)))
+            # print("Number of bullets : %d" %(len(self.bullets)))
             for bullet in self.bullets:
 
                 items_hit = bullet.items_hit(self.player_group)
@@ -428,11 +446,11 @@ class MainScreen(object):
                     if items_hit[0] == self.deafy:
                         print('Deafy got hit. Cat wins!')
                         time.sleep(3)
-                        self.init_battle()
+                        self.reset_battle()
                     else:
                         print('Cat got hit. Deafy wins!')
                         time.sleep(3)
-                        self.init_battle()
+                        self.reset_battle()
 
             # Only keep the not destroyed objects.
             self.bullets = [bullet for bullet in self.bullets if not bullet.destroyed]
