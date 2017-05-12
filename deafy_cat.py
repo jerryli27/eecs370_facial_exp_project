@@ -13,7 +13,7 @@ class Deafy(pygame.sprite.Sprite):
     _FAIL_INDEX = 4
     _JUMP_SOUND_INDEX = 1
     _VICTORY_SOUND_INDEX = 2
-    def __init__(self, pos=SCREEN_RECT.bottomright):
+    def __init__(self, pos=BATTLE_SCREEN_RECT.bottomright):
         # Notice that bottomright instead of bottomleft is used for deafy, because deafy is facing right.
         pygame.sprite.Sprite.__init__(self, self.containers)
         self.current_image_index = self._RUN_IMAGE_START_INDEX
@@ -30,7 +30,7 @@ class Deafy(pygame.sprite.Sprite):
 
     def move(self, pos):
         self.rect= self.image.get_rect(bottomright=pos)
-        self.rect = self.rect.clamp(SCREEN_RECT)
+        self.rect = self.rect.clamp(BATTLE_SCREEN_RECT)
 
     def jump(self, speed=None):
         if self.failed:
@@ -160,7 +160,7 @@ class CatObstacle(BackgroundObjects):
     _CAT_RUN_IMAGE_START_INDEX = 1
     _CAT_RUN_IMAGE_END_INDEX = 4
 
-    def __init__(self, dx=STD_DX, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True):
+    def __init__(self, dx=STD_DX, pos=BATTLE_SCREEN_RECT.bottomleft, destroy_when_oos=True):
         super(CatObstacle, self).__init__(dx, pos,destroy_when_oos)
         if len(self.images) < (self._CAT_RUN_IMAGE_END_INDEX + 1):
             raise AssertionError("Wrong number of images loaded for class CatObstacle. "

@@ -144,19 +144,20 @@ class Stage(object):
 
 class MainScreen(object):
 
-    size = ( SCREEN_WIDTH, SCREEN_HEIGHT )
+    size = (GAME_SCREEN_WIDTH, GAME_SCREEN_HEIGHT)
+
     def __init__(self, **argd):
         self.__dict__.update(**argd)
         super(MainScreen, self).__init__(**argd)
 
         # create a display surface. standard pygame stuff
         self.display = pygame.display.set_mode( self.size, 0 )
-        self.background = pygame.Surface(SCREEN_RECT.size)
+        self.background = pygame.Surface(GAME_SCREEN_RECT.size)
 
         # Initialize camera
         if ARGS.camera:
             self.init_cams(0)
-            self.fld = FacialLandmarkDetector(SCREEN_WIDTH, SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
+            self.fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
 
         # Load graphics
         deafy_sheet = SpriteSheet("data/Undertale_Annoying_Dog.png")
@@ -212,11 +213,11 @@ class MainScreen(object):
 
         # TODO: Maybe the height and width are the other way around
         self.ground_sprites = [Ground(pos=(w*BACKGROUND_OBJECT_WIDTH, h*BACKGROUND_OBJECT_HEIGHT))
-                               for w in range(SCREEN_WIDTH / BACKGROUND_OBJECT_WIDTH + 1)
+                               for w in range(BATTLE_SCREEN_WIDTH / BACKGROUND_OBJECT_WIDTH + 1)
                                for h in range(GROUND_Y_LIMITS[0] / BACKGROUND_OBJECT_HEIGHT + 1,
                                               GROUND_Y_LIMITS[1] / BACKGROUND_OBJECT_HEIGHT + 1)]
         self.sky_sprites = [Sky(pos=(w*BACKGROUND_OBJECT_WIDTH, h*BACKGROUND_OBJECT_HEIGHT))
-                               for w in range(SCREEN_WIDTH / BACKGROUND_OBJECT_WIDTH + 1)
+                               for w in range(BATTLE_SCREEN_WIDTH / BACKGROUND_OBJECT_WIDTH + 1)
                                for h in range(SKY_Y_LIMITS[0] / BACKGROUND_OBJECT_HEIGHT + 1,
                                               SKY_Y_LIMITS[1] / BACKGROUND_OBJECT_HEIGHT + 1)]
         self.deafy = Deafy(pos=DEAFY_SCREEN_POS)
@@ -226,7 +227,7 @@ class MainScreen(object):
         self.bullets = []
 
         self.dx = INITIAL_DX
-        self.visible_xrange = [0, SCREEN_WIDTH]
+        self.visible_xrange = [0, BATTLE_SCREEN_WIDTH]
 
         # to track of which dialog frame shold be rendered
         self.dialog_frame = 0
@@ -284,7 +285,7 @@ class MainScreen(object):
         # create a surface to capture to.  for performance purposes, you want the
         # bit depth to be the same as that of the display surface.
         self.camera_shot_raw = pygame.surface.Surface((CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT), 0, self.display)
-        self.camera_default_display_location = (SCREEN_WIDTH - CAMERA_DISPLAY_WIDTH, SCREEN_HEIGHT - CAMERA_DISPLAY_HEIGHT)
+        self.camera_default_display_location = (BATTLE_SCREEN_WIDTH - CAMERA_DISPLAY_WIDTH, BATTLE_SCREEN_HEIGHT - CAMERA_DISPLAY_HEIGHT)
 
     def get_camera_shot(self):
         # For now, only get the camera shot and store it in self.camera_shot_raw.
@@ -535,7 +536,7 @@ class MainScreen(object):
                 # TODO: maybe use the self.rect and self.update instead. That is the standard way to display a sprite.
                 # Now the display blit is handled manually. Add it to a group and use methods like above to make sure
                 # it is drawn after everything else. The blinking is likely caused by this bug.
-                self.display.blit(self.dialog.image, (SCREEN_WIDTH-320, SCREEN_HEIGHT-120))
+                self.display.blit(self.dialog.image, (BATTLE_SCREEN_WIDTH - 320, BATTLE_SCREEN_HEIGHT - 120))
 
             # enable camera only after all dialog frames are shown
             if ARGS.camera and not self.is_dialog_active:

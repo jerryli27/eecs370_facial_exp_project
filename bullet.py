@@ -5,7 +5,7 @@ import random
 class Bullet(BackgroundObjects):
     """ This class represents the bullet . """
 
-    def __init__(self, dx=INITIAL_DX, dy=INITIAL_DY, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
+    def __init__(self, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
         # Call the parent class (Sprite) constructor
         pygame.sprite.Sprite.__init__(self, self.containers)
         self.image = pygame.Surface([bullet_size, bullet_size])
@@ -25,14 +25,14 @@ class NormalBullet(Bullet):
     pass
 
 class BounceBullet(Bullet):
-    """ Bullet bounce back when hit the SCREEN_RECT """
+    """ Bullet bounce back when hit the BATTLE_SCREEN_RECT """
 
     def update(self):
-        print "Bullet bounce back when hit the SCREEN_RECT", self.dy
+        print "Bullet bounce back when hit the BATTLE_SCREEN_RECT", self.dy
         self.rect.move_ip(self.dx, self.dy)
 
-        # if bullet hits the SCREEN_RECT, set the speed in oppositive direction
-        if self.rect.right >= SCREEN_RECT.right or self.rect.left <= SCREEN_RECT.left:
+        # if bullet hits the BATTLE_SCREEN_RECT, set the speed in oppositive direction
+        if self.rect.right >= BATTLE_SCREEN_RECT.right or self.rect.left <= BATTLE_SCREEN_RECT.left:
             self.dy = random.randint(-BULLET_BOUNCE_H_SPEED, BULLET_BOUNCE_H_SPEED)
             self.dx = -self.dx
             print "Bounce Back!", self.dy
@@ -40,7 +40,7 @@ class BounceBullet(Bullet):
 class SpreadBullets(Bullet):
     """ Bullets emits more bullets along the trajectory """
 
-    def __init__(self, bullet_orientation, dx=INITIAL_DX, dy=INITIAL_DY, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
+    def __init__(self, bullet_orientation, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
         # Call the parent class (Sprite) constructor
         #pygame.sprite.Sprite.__init__(self, self.containers)
         self.bullet_orientation = bullet_orientation
@@ -71,17 +71,17 @@ class SpreadBullets(Bullet):
         for bullet in self.bullets:
             bullet.rect.move_ip(self.dx, self.dy)
 
-            if bullet.rect.left > SCREEN_RECT.right or bullet.rect.right < SCREEN_RECT.left:
+            if bullet.rect.left > BATTLE_SCREEN_RECT.right or bullet.rect.right < BATTLE_SCREEN_RECT.left:
                 if bullet.destroy_when_oos:
                     bullet.handle_oos()
                     return
                 else:
-                    if bullet.rect.left > SCREEN_RECT.right:
+                    if bullet.rect.left > BATTLE_SCREEN_RECT.right:
                         # Move the sprite towards the left n pixels where n = width of platform + width of object.
-                        bullet.rect.move_ip(SCREEN_RECT.left-SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH,0)
-                    elif bullet.rect.right < SCREEN_RECT.left:
+                        bullet.rect.move_ip(BATTLE_SCREEN_RECT.left - BATTLE_SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH, 0)
+                    elif bullet.rect.right < BATTLE_SCREEN_RECT.left:
                         # Move the sprite towards the right n pixels where n = width of platform + width of object.
-                        bullet.rect.move_ip(SCREEN_RECT.right-SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH,0)
+                        bullet.rect.move_ip(BATTLE_SCREEN_RECT.right - BATTLE_SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH, 0)
                     else:
                         raise AssertionError("This line should not be reached. The object should only move left and right.")
 

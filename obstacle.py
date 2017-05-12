@@ -6,7 +6,7 @@ class GroundObstacle(BackgroundObjects):
     _GROUND_IMAGE_INDEX = 0
     _GAP_IMAGE_INDEX = 1
 
-    def __init__(self, item_type, dx=INITIAL_DX, pos=SCREEN_RECT.bottomleft, destroy_when_oos=True):
+    def __init__(self, item_type, dx=INITIAL_DX, pos=BATTLE_SCREEN_RECT.bottomleft, destroy_when_oos=True):
         super(GroundObstacle, self).__init__(dx, pos, destroy_when_oos)
         if item_type == self._GROUND_IMAGE_INDEX or item_type == self._GAP_IMAGE_INDEX:
             self.change_image(item_type)
@@ -20,5 +20,5 @@ class GroundObstacle(BackgroundObjects):
 
     def handle_oos(self):
         # only kill the obstacle when it reaches the far left
-        if self.rect.right < SCREEN_RECT.left:
+        if self.rect.right < BATTLE_SCREEN_RECT.left:
             self.kill()

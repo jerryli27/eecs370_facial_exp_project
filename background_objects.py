@@ -3,7 +3,7 @@ from constants import *
 
 class BackgroundObjects(pygame.sprite.Sprite):
     images = []
-    def __init__(self, dx=INITIAL_DX, dy=INITIAL_DY, pos=SCREEN_RECT.bottomleft, destroy_when_oos=False):
+    def __init__(self, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft, destroy_when_oos=False):
         """
 
         :param pos: The initial position of the object.
@@ -25,17 +25,17 @@ class BackgroundObjects(pygame.sprite.Sprite):
         self.rect.move_ip(self.dx, self.dy)
 
         # If the enemy is outside of the platform, make it appear on the other side of the screen
-        if self.rect.left > SCREEN_RECT.right or self.rect.right < SCREEN_RECT.left:
+        if self.rect.left > BATTLE_SCREEN_RECT.right or self.rect.right < BATTLE_SCREEN_RECT.left:
             if self.destroy_when_oos:
                 self.handle_oos()
                 return
             else:
-                if self.rect.left > SCREEN_RECT.right:
+                if self.rect.left > BATTLE_SCREEN_RECT.right:
                     # Move the sprite towards the left n pixels where n = width of platform + width of object.
-                    self.rect.move_ip(SCREEN_RECT.left-SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH,0)
-                elif self.rect.right < SCREEN_RECT.left:
+                    self.rect.move_ip(BATTLE_SCREEN_RECT.left - BATTLE_SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH, 0)
+                elif self.rect.right < BATTLE_SCREEN_RECT.left:
                     # Move the sprite towards the right n pixels where n = width of platform + width of object.
-                    self.rect.move_ip(SCREEN_RECT.right-SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH,0)
+                    self.rect.move_ip(BATTLE_SCREEN_RECT.right - BATTLE_SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH, 0)
                 else:
                     raise AssertionError("This line should not be reached. The object should only move left and right.")
 
