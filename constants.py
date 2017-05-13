@@ -36,11 +36,15 @@ MAX_JUMP_SPEED = 30
 INITIAL_DX = 0
 INITIAL_DY = 0
 STD_DX = -1
+DEFAULT_SPEED = 5  # Default speed for both cat and deafy in pixel per second.
 # The gravity factor works similarly to BLINK_JUMP_SPEED_FACTOR. The gravity is decreased by this factor when feature score
 # exceeds the lower threshold, so that when the mouth opens larger, Deafy falls slower.
 GRAVITY_FACTOR = 1
 MIN_GRAVITY = 2.0 # 0.5
 
+# Direction key constants.
+WSAD_KEY_CONSTANTS = [K_w, K_s, K_a, K_d]
+ARROW_KEY_CONSTANTS = [K_UP, K_DOWN, K_LEFT, K_RIGHT]
 
 # UI object specifics
 MAX_FPS = 30

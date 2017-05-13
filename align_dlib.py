@@ -15,6 +15,7 @@
 """Module for dlib-based alignment."""
 
 # This file is experimental. It aligns the face so that the eyes and the nose stays at the same location.
+# https://github.com/dougsouza/face-frontalization
 
 import cv2
 import dlib

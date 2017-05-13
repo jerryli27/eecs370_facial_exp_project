@@ -18,7 +18,9 @@ import pygame
 import pygame.camera
 from pygame.locals import *
 
-from facial_landmark_util import get_mouth_open_score, get_mouth_left_corner_score, FacialLandmarkDetector, tuple_to_rectangle
+from facial_landmark_util import get_mouth_open_score, get_mouth_left_corner_score, get_mouth_right_corner_score, \
+    FacialLandmarkDetector, tuple_to_rectangle, HeadPoseEstimator, get_mouth_right_corner_to_center_dist,\
+    get_mouth_left_corner_to_center_dist, get_blink_score, get_left_blink_score, get_right_blink_score
 from align_dlib import AlignDlib
 
 #game constants
@@ -28,7 +30,6 @@ SCREEN_RECT= Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 FACIAL_LANDMARK_PREDICTOR_WIDTH = 320
 RESIZE_RATIO = (float(SCREEN_WIDTH) / FACIAL_LANDMARK_PREDICTOR_WIDTH)
 MOUTH_RATIO_LOWER_THRESHOLD = 0.2
-MOUTH_LEFT_CORNER_THRESHOLD = 0.6
 
 CAMERA_INPUT_HEIGHT = 480
 CAMERA_INPUT_WIDTH = 640
@@ -78,7 +79,7 @@ class VideoCapturePlayer(object):
 
         # create a display surface. standard pygame stuff
         self.display = pygame.display.set_mode( self.size, 0 )
-        self.init_cams(0)
+        self.init_cams(1)
         self.background = pygame.Surface(SCREEN_RECT.size)
 
         Circle.images = [load_image('circle.png')]
@@ -90,6 +91,11 @@ class VideoCapturePlayer(object):
         Circle.containers = self.all, self.facial_feature_group
 
         self.circles = [Circle() for _ in range(68)]
+
+        self.align_dlib_object = AlignDlib()
+        # HeadPoseEstimator
+        self.head_pose_estimator = HeadPoseEstimator(CAMERA_INPUT_WIDTH, CAMERA_DISPLAY_HEIGHT)
+
 
     def init_cams(self, which_cam_idx):
 
@@ -145,8 +151,14 @@ class VideoCapturePlayer(object):
 
     def main(self, facial_landmark_detector,):
 
-        align_dlib_object = AlignDlib()
+        # First calibrate
+        while not facial_landmark_detector.calibrate_face(self.camera_shot_raw, self.head_pose_estimator):
+            self.get_camera_shot()
+            self.blit_camera_shot((0, 0))
+            pygame.display.flip()
 
+
+        do_rotate = False
         going = True
         while going:
             events = pygame.event.get()
@@ -156,6 +168,9 @@ class VideoCapturePlayer(object):
                 if e.type == KEYDOWN:
                     if e.key in range(K_0, K_0+10) :
                         self.init_cams(e.key - K_0)
+                    if e.key == K_SPACE:
+                        do_rotate = not do_rotate
+                        print("ROTATE ",  do_rotate)
 
             self.get_camera_shot()
             # Now use the facial landmark defector
@@ -163,37 +178,68 @@ class VideoCapturePlayer(object):
             # The speed is directly related to FACIAL_LANDMARK_PREDICTOR_WIDTH.
             face_coordinates, facial_features = facial_landmark_detector.get_features(self.camera_shot_raw)
             if len(face_coordinates) > 0:
-                # For now simply get the first face and update the sprites.
-                pygame.draw.rect(self.display, (0,255,0), face_coordinates[0], 2)
                 assert facial_features[0].shape[0] == 68
+                # print("Detected %d face%s." % (len(face_coordinates), "s" if len(face_coordinates) > 1 else ""))
+                face_index = facial_landmark_detector.get_largest_face_index(face_coordinates)
+
                 for i in range(68):
-                    self.circles[i].move(facial_features[0][i])
+                    self.circles[i].move(facial_features[face_index][i])
 
-                print("Detected %d face%s." % (len(face_coordinates),
-                                               "s" if len(face_coordinates) > 1 else ""))
-                # Assume the first face is the target for now.
-                mouth_open_degree = get_mouth_open_score(facial_features[0])
-                if mouth_open_degree >= MOUTH_RATIO_LOWER_THRESHOLD:
-                    print("Mouth open degree: %f" % (mouth_open_degree))
-                else:
-                    print("Mouth closed degree: %f" % (mouth_open_degree))
 
-                # mouth_left_corner_score = get_mouth_left_corner_score(facial_features[0])
-                # if mouth_left_corner_score >= MOUTH_LEFT_CORNER_THRESHOLD:
-                #     print("Mouth left corner score OK: %f" %(mouth_left_corner_score))
+                # Use head pose estimator
+                head_pose = self.head_pose_estimator.head_pose_estimation(facial_features[face_index])
+                # This is the roll, pitch, and yaw, but it is very dependent on the initial position of the camera.
+                # So maybe calibrate and set a relative threshold for controlling.
+                # print(np.array(head_pose[0]) * 180 / np.pi)
+                # print("Reconstructed 3d of the nose (point 34): ",
+                #       self.head_pose_estimator.two_d_to_three_d(facial_features[face_index][33],
+                #                                               head_pose[0], head_pose[1]))
+                # Get the rotation invariant facial features.
+                facial_features_3d = self.head_pose_estimator.facial_features_to_3d(facial_features[face_index],
+                                                                                        head_pose[0], head_pose[1])
+                # This is the difference in pose, i.e. yaw, pitch, and roll
+                pose_dif = np.array([[facial_landmark_detector.norm_roll],
+                                     [facial_landmark_detector.norm_pitch],
+                                     [facial_landmark_detector.norm_yaw]]) - head_pose[0]
+
+
+
+                # min_y, min_z = np.min(facial_features_3d[:,1:], axis=0).tolist()
+                # max_y, max_z = np.max(facial_features_3d[:,1:], axis=0).tolist()
+                # for i in range(68):
+                #     # Get rid of the x axis (depth).
+                #     y = (max_y - facial_features_3d[i][1]) / (max_y - min_y) * SCREEN_WIDTH
+                #     z = (max_z - facial_features_3d[i][2]) / (max_z - min_z) * SCREEN_HEIGHT
+                #     self.circles[i].move((y,z))
+
+
+                # mouth_open_degree = get_mouth_open_score(facial_features_3d)
+                # if mouth_open_degree >= MOUTH_RATIO_LOWER_THRESHOLD:
+                #     print("Mouth open degree: %f" % (mouth_open_degree))
                 # else:
-                #     print("Mouth left corner score failed: %f" %(mouth_left_corner_score))
+                #     print("Mouth closed degree: %f" % (mouth_open_degree))
 
-                # aligned_face = align_dlib_object.align(128, rgbImg=scipy.misc.imresize(
-                #     facial_landmark_detector.get_image_from_surface(self.camera_shot_raw)[..., :3], (128, 128)),
-                #                                        bb=tuple_to_rectangle(face_coordinates[0]),
-                #                                        landmarks=facial_features[0])
-                # aligned_face = align_dlib_object.align(128, rgbImg=
-                #     facial_landmark_detector.get_image_from_surface(self.camera_shot_raw)[..., :3],
-                #                                        bb=tuple_to_rectangle(face_coordinates[0]),
-                #                                        landmarks=facial_features[0])
-                aligned_face = align_dlib_object.align(128, rgbImg=imutils.resize(
+                mouth_left_corner_score = get_mouth_left_corner_score(facial_features_3d,
+                                                                      facial_landmark_detector.norm_mouth_left_corner_to_center_dist)
+                mouth_right_corner_score = get_mouth_right_corner_score(facial_features_3d,
+                                                                      facial_landmark_detector.norm_mouth_right_corner_to_center_dist)
+
+                # mouth_left_corner_score = get_mouth_left_corner_to_center_dist(facial_features_3d)
+                # mouth_right_corner_score = get_mouth_right_corner_to_center_dist(facial_features_3d)
+                # print("Mouth left corner score: %f, right corner score: %f, raw: %f"
+                #       %(mouth_left_corner_score, mouth_right_corner_score, pose_dif[0]))
+                print("%f,%f,%f"
+                      %(mouth_left_corner_score, mouth_right_corner_score, pose_dif[0]))
+
+                # Get blink scores
+                # left_blink_score = get_left_blink_score(facial_features_3d)
+                # right_blink_score = get_right_blink_score(facial_features_3d)
+                # print("Blink left eye score: %f, right eye score: %f"
+                #       %(left_blink_score, right_blink_score))
+
+                aligned_face = self.align_dlib_object.align(128, rgbImg=imutils.resize(
                 facial_landmark_detector.get_image_from_surface(self.camera_shot_raw)[..., :3],FACIAL_LANDMARK_PREDICTOR_WIDTH),)
+
 
             # clear/erase the last drawn sprites
             self.all.clear(self.display, self.background)
@@ -208,9 +254,18 @@ class VideoCapturePlayer(object):
                 if aligned_face is not None:
                     aligned_face_surface = pygame.surfarray.make_surface(aligned_face)
                     self.display.blit(aligned_face_surface, (0,0))
+
+
+                # For now simply get the first face and update the sprites.
+                pygame.draw.rect(self.display, (0,255,0), face_coordinates[face_index], 2)
+                pygame.draw.line(self.display, (255,0,0), head_pose[2][0][0], head_pose[2][0][1])
+                pygame.draw.line(self.display, (0,255,0), head_pose[2][1][0], head_pose[2][1][1])
+                pygame.draw.line(self.display, (0,0,255), head_pose[2][2][0], head_pose[2][2][1])
+
+
             pygame.display.flip()
             self.clock.tick()
-            print (self.clock.get_fps())
+            # print (self.clock.get_fps())
 
 # This is for testing a custom Sprite object. Usually if we want to draw a circle we can use pygame.draw.circle. You
 # can load different images to the circle.

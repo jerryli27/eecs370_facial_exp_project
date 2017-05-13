@@ -6,9 +6,11 @@ import argparse
 import os
 import random
 import time
+import numpy as np
 
 import pygame
 import pygame.camera
+import pygame.key
 from pygame.locals import *
 
 from facial_landmark_util import FacialLandmarkDetector, get_mouth_open_score, get_blink_score
@@ -173,11 +175,6 @@ class MainScreen(object):
         Sky.images =  [load_image('sky.png', (32,32))]
         Ground.images =  [load_image('grass.png', (32,32))]
         GroundObstacle.images = [load_image('grass.png', (32,32)), load_image('sky.png', (32,32))]
-        CatObstacle.images = [cat_sheet.image_at((0, 0, 54, 42), colorkey=-1),
-                              cat_sheet.image_at((1, 158, 54, 42), colorkey=-1),
-                              cat_sheet.image_at((1+54, 158, 54, 42), colorkey=-1),
-                              cat_sheet.image_at((1+54*2, 158, 54, 42), colorkey=-1),
-                              cat_sheet.image_at((1+54*3, 158, 54, 42), colorkey=-1),]
         CatOpponent.images = [cat_sheet.image_at((0, 0, 54, 42), colorkey=-1),
                               cat_sheet.image_at((1, 158, 54, 42), colorkey=-1),
                               cat_sheet.image_at((1+54, 158, 54, 42), colorkey=-1),
@@ -200,7 +197,6 @@ class MainScreen(object):
         Ground.containers = self.all, self.background_group
         Sky.containers = self.all, self.background_group
         GroundObstacle.containers = self.all, self.obstacle_group
-        CatObstacle.containers = self.all, self.front_group
         CatOpponent.containers = self.all, self.front_group, self.player_group
         dialog.Dialog.containers = self.all
         Bullet.containers = self.all, self.front_group
@@ -343,6 +339,34 @@ class MainScreen(object):
         for s in self.sky_sprites + self.ground_sprites + self.cat_obstacles + self.ground_obstacle_sprites:
             s.set_dx(self.dx)
 
+    def _get_direction_from_keys(self, keys, wasd_constant_list):
+        """
+        This is for controlling the movement of cat or deafy using keyboard.
+        :param keys: from pygame.keys.get_pressed()
+        :param wasd_constant_list: a list containing constants for [UP, DOWN, LEFT, RIGHT]. So it would be
+        [K_UP, K_DOWN, K_LEFT, K_RIGHT] if using the arrow keys.
+        :return: (bool - true if the object should move ,a float from 0~2pi representing the direction)
+        """
+        assert len(wasd_constant_list) == 4
+        _up, _down, _left, _right = wasd_constant_list
+        dx = 0
+        dy = 0
+        if keys[_up]:
+            dy += 1
+        if keys[_down]:
+            dy -= 1
+        # In pygame display left and right is reversed from what we usually perceive.
+        if keys[_left]:
+            dx += 1
+        if keys[_right]:
+            dx -= 1
+
+        if dx == 0 and dy == 0:
+            return (False, 0)
+        else:
+            direction = np.arctan2(dy, dx) + math.pi  # [0, 2pi]
+            return (True, direction)
+
 
     def main(self,):
         self.init_battle()
@@ -371,31 +395,43 @@ class MainScreen(object):
             for e in events:
                 if e.type == QUIT or (e.type == KEYDOWN and e.key == K_ESCAPE):
                     going = False
-                if e.type == KEYDOWN:
-                    # handle different keys
-                    if e.key == K_UP:
-                        # Jump!
-                        if self.cat.is_lying:
-                            self.cat.stand_up()
-                        else:
-                            self.cat.jump()
-                    if e.key ==K_LEFT:
-                        self.bullets.append(fire_bullet(self.cat,"LEFT", bullet_color=RED))
-                    if e.key == K_SPACE:
-                        if self.dialog_frame < DIALOG_FRAME_COUNT:
-                            self.dialog_frame += 1
-                            if self.dialog_frame >= DIALOG_FRAME_COUNT:
-                                self.is_dialog_active = False
-                    if e.key == K_a:
-                        # emit normal bullet
-                        self.bullets.append(self.deafy.emit_bullets("NORMAL", "RIGHT", bullet_color=YELLOW))
-                    if e.key == K_b:
-                        # emit bounce bullet
-                        self.bullets.append(self.deafy.emit_bullets("BOUNCE", "RIGHT", bullet_color=BLUE))
-                    if e.key == K_s:
-                        bullets = self.deafy.emit_bullets("SPREAD", "RIGHT", bullet_color=GREEN)
-                        for bullet in bullets:
-                            self.bullets.append(bullet)
+
+
+            # Get all key pressed.
+            keys = pygame.key.get_pressed()
+
+            if keys[K_ESCAPE]:
+                going = False
+
+            # handle different keys
+            deafy_is_moving, deafy_direction = self._get_direction_from_keys(keys, WSAD_KEY_CONSTANTS)
+            cat_is_moving, cat_direction = self._get_direction_from_keys(keys, ARROW_KEY_CONSTANTS)
+            if deafy_is_moving:
+                self.deafy.start_moving()
+                self.deafy.set_direction(deafy_direction)
+            else:
+                self.deafy.stop_moving()
+            if cat_is_moving:
+                self.cat.start_moving()
+                self.cat.set_direction(cat_direction)
+            else:
+                self.cat.stop_moving()
+
+            if keys[K_SPACE]:
+                if self.dialog_frame < DIALOG_FRAME_COUNT:
+                    self.dialog_frame += 1
+                    if self.dialog_frame >= DIALOG_FRAME_COUNT:
+                        self.is_dialog_active = False
+            if keys[K_z]:
+                # emit normal bullet
+                self.bullets.append(self.deafy.emit_bullets("NORMAL", "RIGHT", bullet_color=YELLOW))
+            if keys[K_x]:
+                # emit bounce bullet
+                self.bullets.append(self.deafy.emit_bullets("BOUNCE", "RIGHT", bullet_color=BLUE))
+            if keys[K_c]:
+                bullets = self.deafy.emit_bullets("SPREAD", "RIGHT", bullet_color=RED)
+                for bullet in bullets:
+                    self.bullets.append(bullet)
 
 
             if ARGS.camera and not self.is_dialog_active:
@@ -433,19 +469,6 @@ class MainScreen(object):
                             self.deafy.jump(min(self.blink_counter * BLINK_JUMP_SPEED_FACTOR,MAX_JUMP_SPEED))
                             self.blink_counter = 0
 
-
-
-                else:
-                    # TODO: maybe add a smoothing factor. Otherwise Deafy stops whenever the camera cannot detect the
-                    # face, making the game harder to control.
-                    self.set_dx(0)
-                    self.deafy.set_gravity(INITIAL_GRAVITY)
-
-
-            if self.deafy.y_speed <= 0 and self.deafy.rect.bottom > GROUND_LEVEL:
-                self.deafy.land_on_ground(ground=GROUND_LEVEL)
-            if self.cat.y_speed <= 0 and self.cat.rect.bottom > GROUND_LEVEL:
-                self.cat.land_on_ground(ground=GROUND_LEVEL)
 
             # Now go through the bullets and see whether one hits anything
             # DEBUG
@@ -500,6 +523,7 @@ class MainScreen(object):
             self.clock.tick(MAX_FPS)
             # print (self.clock.get_fps())
 
+        print("Game exiting.")
         # Sleeps for 5 seconds before quitting
         time.sleep(5)
 
