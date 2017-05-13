@@ -357,7 +357,14 @@ class MainScreen(object):
                     print('Cat ran out of hp. Deafy wins!')
                 else:
                     print('Draw!')
-                time.sleep(3)
+                # I know this is weird but it seems to be able to avoid some lag and make sure no
+                # keyboard inputs are carried over to the next game
+                time.sleep(1)
+                events = pygame.event.get()
+                time.sleep(1)
+                events = pygame.event.get()
+                time.sleep(1)
+                events = pygame.event.get()
                 self.reset_battle()
 
             events = pygame.event.get()

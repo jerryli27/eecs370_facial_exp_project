@@ -162,7 +162,7 @@ class Deafy(pygame.sprite.Sprite):
 			return bullets_list
 
 	def create_hp_bar(self):
-		return HPBar(hp_max=self.hp, pos=HP_BAR_DEAFY_BOTTOMLEFT)
+		return HPBar(hp_max=self.hp, pos=HP_BAR_DEAFY_BOTTOMLEFT, name='DEAFY')
 
 	def kill(self):
 		self.hp_bar.kill()
@@ -171,7 +171,7 @@ class Deafy(pygame.sprite.Sprite):
 
 class CatOpponent(Deafy):
 	def create_hp_bar(self):
-		return HPBar(hp_max=self.hp, pos=HP_BAR_CAT_BOTTOMLEFT)
+		return HPBar(hp_max=self.hp, pos=HP_BAR_CAT_BOTTOMLEFT, name='KITTY')
 
 
 class CatObstacle(BackgroundObjects):
