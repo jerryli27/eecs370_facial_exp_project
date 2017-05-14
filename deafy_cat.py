@@ -60,6 +60,10 @@ class Deafy(pygame.sprite.Sprite):
         dx = self.speed * math.cos(self.direction)
         dy = self.speed * math.sin(self.direction)
         self.rect.move_ip(dx, dy)
+        # Check if out of screen. If so, move back into the screen
+        if BATTLE_SCREEN_RECT.colliderect(self.rect):
+            self.rect.clamp_ip(BATTLE_SCREEN_RECT)
+
         if self.is_running:
             self.run_next_frame()
 

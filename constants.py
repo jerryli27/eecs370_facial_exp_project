@@ -13,8 +13,8 @@ HP_BAR_DEAFY_BOTTOMLEFT = (60, 600)
 HP_BAR_CAT_BOTTOMLEFT = (480, 600)
 
 FACIAL_LANDMARK_PREDICTOR_WIDTH = 320
-CAMERA_INPUT_HEIGHT = 480
-CAMERA_INPUT_WIDTH = 640
+CAMERA_INPUT_HEIGHT = 480 # 720 # 480 * 2
+CAMERA_INPUT_WIDTH = 640 # 1280 # 640 * 2
 CAMERA_DISPLAY_HEIGHT = BATTLE_SCREEN_HEIGHT / 4
 CAMERA_DISPLAY_WIDTH = BATTLE_SCREEN_WIDTH / 4
 CAMERA_DISPLAY_SIZE = (CAMERA_DISPLAY_WIDTH, CAMERA_DISPLAY_HEIGHT)
@@ -66,7 +66,7 @@ YELLOW = (255, 255, 0)
 DARK_RED = (100, 0, 0)
 
 # Facial landmark constants
-MOUTH_SCORE_SHOOT_THRESHOLD = 1.5  # The mouth score has to be at least this big for Deafy to start shooting.
+MOUTH_SCORE_SHOOT_THRESHOLD = 0.8  # The mouth score has to be at least this big for Deafy to start shooting.
 MOUTH_SCORE_RECHARGE_THRESHOLD = 0.4  # The mouth score has to be at least this big for Deafy to start shooting.
 # The jump speed is the facial feature score times this factor: score * BLINK_JUMP_SPEED_FACTOR pixels per second.
 BLINK_JUMP_SPEED_FACTOR = 3
@@ -77,5 +77,9 @@ MOUTH_SCORE_SPEED_THRESHOLDS = [(0.3, -2), (0.4, -4), (0.6, -6), (0.8, -8)]
 # frames the eye must be below the threshold
 EYE_AR_THRESH = 0.3
 EYE_AR_CONSEC_FRAMES = 3
+
+# The lower and upper threshold for pose-controlled moving.
+POSE_MOVE_LOWER_THRESHOLD = 10
+POSE_MOVE_UPPER_THRESHOLD = 100
 
 assert BATTLE_SCREEN_HEIGHT % BACKGROUND_OBJECT_HEIGHT == 0 and BATTLE_SCREEN_WIDTH % BACKGROUND_OBJECT_WIDTH == 0

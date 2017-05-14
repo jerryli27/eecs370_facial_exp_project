@@ -13,7 +13,8 @@ import pygame.camera
 import pygame.key
 from pygame.locals import *
 
-from facial_landmark_util import FacialLandmarkDetector, get_mouth_open_score, get_blink_score
+from facial_landmark_util import FacialLandmarkDetector, HeadPoseEstimator, get_mouth_open_score, get_blink_score, \
+    get_direction_from_line
 from sprite_sheet import SpriteSheet
 
 from constants import *
@@ -31,8 +32,15 @@ parser.add_argument("--no_camera", dest="camera", action="store_false",
                     help="Turn off camera and use keyboard control.")
 parser.set_defaults(camera=True)
 
+parser.add_argument("--deafy_camera_index", dest="deafy_camera_index", type=int,
+                    help="The camera index for Deafy player.")
+parser.add_argument("--cat_camera_index", dest="cat_camera_index", type=int,
+                    help="The camera index for Cat player.")
+
 ARGS = parser.parse_args()
 
+if ARGS.camera and ARGS.deafy_camera_index is None and ARGS.cat_camera_index is None:
+    parser.error("To use the camera, please specify either the camera index for deafy or for cat, or both.")
 
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
@@ -159,8 +167,25 @@ class MainScreen(object):
 
         # Initialize camera
         if ARGS.camera:
-            self.init_cams(0)
-            self.fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
+            # HeadPoseEstimator
+            self.hpe = HeadPoseEstimator(CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT)
+
+            if ARGS.deafy_camera_index is not None:
+                # Facial landmark detector.
+                self.deafy_fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
+                self.init_cams(ARGS.deafy_camera_index)
+                self.deafy_cam_on = True
+            else:
+                self.deafy_fld = None
+                self.deafy_cam_on = False
+            if ARGS.cat_camera_index is not None:
+                # Facial landmark detector.
+                self.cat_fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
+                self.init_cams(ARGS.cat_camera_index)
+                self.cat_cam_on = True
+            else:
+                self.cat_fld = None
+                self.cat_cam_on = False
 
         # Load graphics
         deafy_sheet = SpriteSheet("data/Undertale_Annoying_Dog.png")
@@ -259,7 +284,7 @@ class MainScreen(object):
 
 
 
-    def init_cams(self, which_cam_idx):
+    def init_cams(self, which_cam_idx, display_location=None):
 
         # gets a list of available cameras.
         self.clist = pygame.camera.list_cameras()
@@ -268,25 +293,36 @@ class MainScreen(object):
         if not self.clist:
             raise ValueError("Sorry, no cameras detected.")
 
-        try:
-            cam_id = self.clist[which_cam_idx]
-        except IndexError:
-            cam_id = self.clist[0]
+        if which_cam_idx >= len(self.clist):
+            raise IndexError("The camera index %d is not within the list of detected camera indices." %(which_cam_idx))
 
+        # Now check whether the list of cameras, camera_shot_raw, and camera_default_display_location is initialized
+        # correctly. If they're not a list or if they do not exist, create a new list.
+
+        if not hasattr(self, 'camera'):
+            # Initialize the list
+            self.camera = [None for _ in range(len(self.clist))]
+            self.camera_shot_raw = [None for _ in range(len(self.clist))]
+            self.camera_shot = [None for _ in range(len(self.clist))]
+            self.camera_default_display_location = [None for _ in range(len(self.clist))]
+
+        cam_id = self.clist[which_cam_idx]
         # creates the camera of the specified size and in RGB colorspace
-        self.camera = pygame.camera.Camera(cam_id, (CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT), "RGB")
+        self.camera[which_cam_idx] = pygame.camera.Camera(cam_id, (CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT), "RGB")
 
         # starts the camera
-        self.camera.start()
-
-        self.clock = pygame.time.Clock()
+        self.camera[which_cam_idx].start()
 
         # create a surface to capture to.  for performance purposes, you want the
         # bit depth to be the same as that of the display surface.
-        self.camera_shot_raw = pygame.surface.Surface((CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT), 0, self.display)
-        self.camera_default_display_location = (BATTLE_SCREEN_WIDTH - CAMERA_DISPLAY_WIDTH, BATTLE_SCREEN_HEIGHT - CAMERA_DISPLAY_HEIGHT)
+        self.camera_shot_raw[which_cam_idx] = pygame.surface.Surface((CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT), 0, self.display)
+        if display_location is None:
+            self.camera_default_display_location[which_cam_idx] = (BATTLE_SCREEN_WIDTH - CAMERA_DISPLAY_WIDTH,
+                                                                   BATTLE_SCREEN_HEIGHT - CAMERA_DISPLAY_HEIGHT)
+        else:
+            self.camera_default_display_location[which_cam_idx] = display_location
 
-    def get_camera_shot(self):
+    def get_camera_shot(self, which_cam_idx):
         # For now, only get the camera shot and store it in self.camera_shot_raw.
         # if you don't want to tie the framerate to the camera, you can check and
         # see if the camera has an image ready.  note that while this works
@@ -300,44 +336,22 @@ class MainScreen(object):
         #     self.display.blit(self.camera_shot_raw, (0, 0))
         # else:
         #     self.camera_shot_raw = self.camera.get_image(self.display)
-        self.camera_shot_raw = self.camera.get_image(self.camera_shot_raw)
-        self.camera_shot = pygame.transform.scale(self.camera_shot_raw, CAMERA_DISPLAY_SIZE)
+        if self.camera[which_cam_idx] is None:
+            raise IndexError("Can't get camera shot. Camera index %d is not initialized correctly!" %which_cam_idx)
+        else:
+            self.camera_shot_raw[which_cam_idx] = self.camera[which_cam_idx].get_image(self.camera_shot_raw[which_cam_idx])
+            self.camera_shot[which_cam_idx] = pygame.transform.scale(self.camera_shot_raw[which_cam_idx], CAMERA_DISPLAY_SIZE)
 
-    def blit_camera_shot(self, blit_location):
+    def blit_camera_shot(self, blit_location, which_cam_idx):
         """
 
         :param blit_location: tuple with format (x, y)
         :return:
         """
-        self.display.blit(self.camera_shot, blit_location)
-
-    def set_dx(self, new_dx):
-        """
-        This is a function to control overall speed.
-        :return:
-        """
-        self.dx = new_dx
-        print self.dx
-        if self.dx < 0:
-            self.deafy.start_running()
+        if self.camera_shot[which_cam_idx] is None:
+            raise IndexError("Can't blit camera shot. Camera index %d is not initialized correctly!" %which_cam_idx)
         else:
-            self.deafy.stop_running()
-        for s in self.sky_sprites + self.ground_sprites + self.cat_obstacles + self.ground_obstacle_sprites:
-            s.set_dx(self.dx)
-
-    def change_dx(self, change):
-        """
-        This is a function to control overall speed.
-        :return:
-        """
-        self.dx += change
-        print self.dx
-        if self.dx < 0:
-            self.deafy.start_running()
-        else:
-            self.deafy.stop_running()
-        for s in self.sky_sprites + self.ground_sprites + self.cat_obstacles + self.ground_obstacle_sprites:
-            s.set_dx(self.dx)
+            self.display.blit(self.camera_shot[which_cam_idx], blit_location)
 
     def _get_direction_from_keys(self, keys, wasd_constant_list):
         """
@@ -367,8 +381,84 @@ class MainScreen(object):
             direction = np.arctan2(dy, dx) + math.pi  # [0, 2pi]
             return (True, direction)
 
+    def _calibrate_camera(self, which_cam_idx, fld):
+        while not fld.calibrate_face(self.camera_shot_raw[which_cam_idx], self.hpe):
+            self.get_camera_shot(which_cam_idx)
+            self.blit_camera_shot((0, 0), which_cam_idx)
+            pygame.display.flip()
+
+    def _get_facial_scores(self, which_cam_idx, obj, fld):
+        self.get_camera_shot(which_cam_idx)
+        # Now use the facial landmark defector
+        # This step decreases the frame rate from 30 fps to 6fps. So we need to do something about it.
+        # The speed is directly related to FACIAL_LANDMARK_PREDICTOR_WIDTH.
+        face_coordinates_list, facial_features_list = fld.get_features(self.camera_shot_raw[which_cam_idx])
+        if len(face_coordinates_list) > 0:
+            print("Detected %d face%s in camera %d."
+                  % (len(face_coordinates_list), "s" if len(face_coordinates_list) > 1 else "", which_cam_idx))
+            # Assume the largest face is the target.
+            face_index = fld.get_largest_face_index(face_coordinates_list)
+
+            # Use head pose estimator
+            head_pose = self.hpe.head_pose_estimation(facial_features_list[face_index])
+            # Get the rotation invariant facial features.
+            facial_features_3d = self.hpe.facial_features_to_3d(facial_features_list[face_index],
+                                                                head_pose[0], head_pose[1])
+
+            # Estimate pose difference from facing forward.
+            pose_diff = fld.get_pose_diff(head_pose[0])
+            print("Pose difference: %s" %(str(pose_diff)))
+            # We only care about yaw (left right) and pitch (up down)
+
+            # TODO: for now, don't vary the speed with respect to the pose. It's either constant speed moving or
+            # stationary.
+            is_moving, direction = get_direction_from_line(head_pose[2][0])
+            print("Face %d direction %s" %(which_cam_idx, str(direction)))
+            if is_moving:
+                obj.set_direction(direction)
+                obj.start_moving()
+            else:
+                obj.stop_moving()
+
+
+            mouth_open_score = get_mouth_open_score(facial_features_3d)
+
+            # TODO: implement bullet CD aka recharge in deafy and cat. Replace deafy_bullet_need_recharge.
+            if mouth_open_score >= MOUTH_SCORE_SHOOT_THRESHOLD and not self.deafy_bullet_need_recharge:
+                self.bullets.append(obj.emit_bullets("BOUNCE", "RIGHT", bullet_color=BLUE))
+                self.deafy_bullet_need_recharge = True
+            elif mouth_open_score <= MOUTH_SCORE_RECHARGE_THRESHOLD:
+                self.deafy_bullet_need_recharge = False
+
+            print("Mouth open score: %f" % (mouth_open_score))
+
+            # # Use the eye aspect ratio (aka blink detection) to jump
+            # blink_score = get_blink_score(facial_features_3d)
+            # # check to see if the eye aspect ratio is below the blink
+            # # threshold, and if so, increment the blink frame counter
+            # if blink_score < EYE_AR_THRESH:
+            #     self.blink_counter += 1
+            #
+            # # otherwise, the eye aspect ratio is not below the blink
+            # # threshold
+            # else:
+            #     # if the eyes were closed for a sufficient number of frames then jump proportional to the
+            #     # number of frames that the eyes are closed.
+            #     if self.blink_counter >= EYE_AR_CONSEC_FRAMES:
+            #         self.deafy.jump(min(self.blink_counter * BLINK_JUMP_SPEED_FACTOR, MAX_JUMP_SPEED))
+            #         self.blink_counter = 0
 
     def main(self,):
+        # Before anything else, calibrate camera.
+
+        if ARGS.camera:
+            if self.deafy_cam_on:
+                self._calibrate_camera(ARGS.deafy_camera_index, self.deafy_fld)
+            if self.cat_cam_on:
+                self._calibrate_camera(ARGS.cat_camera_index, self.cat_fld)
+
+
+
         self.init_battle()
         going = True
         self.clock = pygame.time.Clock()
@@ -435,39 +525,10 @@ class MainScreen(object):
 
 
             if ARGS.camera and not self.is_dialog_active:
-                self.get_camera_shot()
-                # Now use the facial landmark defector
-                # This step decreases the frame rate from 30 fps to 6fps. So we need to do something about it.
-                # The speed is directly related to FACIAL_LANDMARK_PREDICTOR_WIDTH.
-                face_coordinates_list, facial_features_list = self.fld.get_features(self.camera_shot_raw)
-                if len(face_coordinates_list) > 0:
-                    print("Detected %d face%s." %(len(face_coordinates_list),
-                          "s" if len(face_coordinates_list) > 1 else ""))
-                    # Assume the first face is the target for now.
-                    mouth_open_score = get_mouth_open_score(facial_features_list[0])
-                    if mouth_open_score >= MOUTH_SCORE_SHOOT_THRESHOLD and not self.deafy_bullet_need_recharge:
-                        self.bullets.append(fire_bullet(self.deafy, "RIGHT", bullet_color=BLACK))
-                        self.deafy_bullet_need_recharge = True
-                    elif mouth_open_score <= MOUTH_SCORE_RECHARGE_THRESHOLD:
-                        self.deafy_bullet_need_recharge = False
-
-                    print("Mouth open degree: %f" %(mouth_open_score))
-
-                    # Use the eye aspect ratio (aka blink detection) to jump
-                    blink_score = get_blink_score(facial_features_list[0])
-                    # check to see if the eye aspect ratio is below the blink
-                    # threshold, and if so, increment the blink frame counter
-                    if blink_score < EYE_AR_THRESH:
-                        self.blink_counter += 1
-
-                    # otherwise, the eye aspect ratio is not below the blink
-                    # threshold
-                    else:
-                        # if the eyes were closed for a sufficient number of frames then jump proportional to the
-                        # number of frames that the eyes are closed.
-                        if self.blink_counter >= EYE_AR_CONSEC_FRAMES:
-                            self.deafy.jump(min(self.blink_counter * BLINK_JUMP_SPEED_FACTOR,MAX_JUMP_SPEED))
-                            self.blink_counter = 0
+                if self.deafy_cam_on:
+                    self._get_facial_scores(ARGS.deafy_camera_index, self.deafy, self.deafy_fld)
+                if self.cat_cam_on:
+                    self._get_facial_scores(ARGS.cat_camera_index, self.cat, self.cat_fld)
 
 
             # Now go through the bullets and see whether one hits anything
@@ -514,7 +575,12 @@ class MainScreen(object):
 
             # enable camera only after all dialog frames are shown
             if ARGS.camera and not self.is_dialog_active:
-                self.blit_camera_shot(self.camera_default_display_location)
+                if self.deafy_cam_on:
+                    self.blit_camera_shot(self.camera_default_display_location[ARGS.deafy_camera_index],
+                                          ARGS.deafy_camera_index)
+                if self.cat_cam_on:
+                    self.blit_camera_shot(self.camera_default_display_location[ARGS.deafy_camera_index],
+                                          ARGS.cat_camera_index)
 
 
             # dirty = self.all.draw(self.display)

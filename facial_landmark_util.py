@@ -12,6 +12,7 @@ import imutils
 import dlib
 import cv2
 import os
+import math
 from operator import mul
 from PIL import Image
 from scipy.spatial import distance as dist
@@ -19,6 +20,7 @@ from scipy.spatial import distance as dist
 import pygame
 import pygame.camera
 from pygame.locals import *
+from constants import *
 
 # Constants
 # grab the indexes of the facial landmarks for the left and
@@ -69,6 +71,12 @@ def is_line_vertical(line, allowed_error=np.pi/18):
     else:
         return False
 
+def get_image_from_surface(surface):
+    pil_string_image = pygame.image.tostring(surface, "RGBA", False)
+    surface_width, surface_height = surface.get_rect().w, surface.get_rect().h
+    image = np.asarray(Image.frombytes("RGBA", (surface_width, surface_height), pil_string_image))
+    return image
+
 class FacialLandmarkDetector(object):
     CALIBRATE_ROUNDS = 10
 
@@ -101,16 +109,14 @@ class FacialLandmarkDetector(object):
         self.norm_pitch = 0
         self.norm_yaw = 0
 
-    def get_image_from_surface(self, surface):
-        pil_string_image = pygame.image.tostring(surface, "RGBA", False)
-        image = np.asarray(Image.frombytes("RGBA", (self.screen_width, self.screen_height), pil_string_image))
+
+
+    def get_features(self, surface):
+        image = get_image_from_surface(surface)
         # The image needs to be resized to speed things up.
         if self.screen_width != self.facial_landmark_predictor_width:
             image = imutils.resize(image, width=self.facial_landmark_predictor_width)
-        return image
 
-    def get_features(self, surface):
-        image = self.get_image_from_surface(surface)
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # detect faces in the grayscale image
         rects = self.detector(gray, 1)
@@ -154,6 +160,20 @@ class FacialLandmarkDetector(object):
             raise AttributeError("face coordinate areas should be larger than 0! No such face area found in %s"
                                  %(str(face_coordinates)))
         return ret
+
+    def get_pose_diff(self, rvec):
+        """
+
+        :param rvec:
+        :return: The difference in pose when comparing to the calibrated pose, i.e. yaw, pitch, and roll.
+        """
+        if not self.calibrated:
+            raise AssertionError("Please use this function only after the facial landmark detector is calibrated.")
+        # This is the difference in pose, i.e. yaw, pitch, and roll
+        pose_diff = np.array([[self.norm_roll],
+                             [self.norm_pitch],
+                             [self.norm_yaw]]) - rvec
+        return pose_diff
 
     def clear_calibrate_results(self):
         self.calibrated = False
@@ -234,57 +254,72 @@ class HeadPoseEstimator():
     # Other useful resources: http://www.learnopencv.com/head-pose-estimation-using-opencv-and-dlib/#code
 
 
-    # Antropometric constant values of the human head.
-    # Found on wikipedia and on:
-    # "Head-and-Face Anthropometric Survey of U.S. Respirator Users"
+    # # Antropometric constant values of the human head.
+    # # Found on wikipedia and on:
+    # # "Head-and-Face Anthropometric Survey of U.S. Respirator Users"
+    # #
+    # # X-Y-Z with X pointing forward and Y on the left.
+    # # The X-Y-Z coordinates used are like the standard
+    # # coordinates of ROS (robotic operative system)
+    # P3D_RIGHT_SIDE = np.float32([-100.0, -77.5, -5.0])  # 0
+    # P3D_GONION_RIGHT = np.float32([-110.0, -77.5, -85.0])  # 4
+    # P3D_MENTON = np.float32([0.0, 0.0, -122.7])  # 8
+    # P3D_GONION_LEFT = np.float32([-110.0, 77.5, -85.0])  # 12
+    # P3D_LEFT_SIDE = np.float32([-100.0, 77.5, -5.0])  # 16
+    # P3D_FRONTAL_BREADTH_RIGHT = np.float32([-20.0, -56.1, 10.0])  # 17
+    # P3D_FRONTAL_BREADTH_LEFT = np.float32([-20.0, 56.1, 10.0])  # 26
+    # P3D_SELLION = np.float32([0.0, 0.0, 0.0])  # 27
+    # P3D_NOSE = np.float32([21.1, 0.0, -48.0])  # 30
+    # P3D_SUB_NOSE = np.float32([5.0, 0.0, -52.0])  # 33
+    # P3D_RIGHT_EYE = np.float32([-20.0, -65.5, -5.0])  # 36
+    # P3D_RIGHT_TEAR = np.float32([-10.0, -40.5, -5.0])  # 39
+    # P3D_LEFT_TEAR = np.float32([-10.0, 40.5, -5.0])  # 42
+    # P3D_LEFT_EYE = np.float32([-20.0, 65.5, -5.0])  # 45
+    # # P3D_LIP_RIGHT = np.float32([-20.0, 65.5,-5.0]) #48
+    # # P3D_LIP_LEFT = np.float32([-20.0, 65.5,-5.0]) #54
+    # P3D_STOMION = np.float32([10.0, 0.0, -75.0])  # 62
     #
-    # X-Y-Z with X pointing forward and Y on the left.
-    # The X-Y-Z coordinates used are like the standard
-    # coordinates of ROS (robotic operative system)
-    P3D_RIGHT_SIDE = np.float32([-100.0, -77.5, -5.0])  # 0
-    P3D_GONION_RIGHT = np.float32([-110.0, -77.5, -85.0])  # 4
-    P3D_MENTON = np.float32([0.0, 0.0, -122.7])  # 8
-    P3D_GONION_LEFT = np.float32([-110.0, 77.5, -85.0])  # 12
-    P3D_LEFT_SIDE = np.float32([-100.0, 77.5, -5.0])  # 16
-    P3D_FRONTAL_BREADTH_RIGHT = np.float32([-20.0, -56.1, 10.0])  # 17
-    P3D_FRONTAL_BREADTH_LEFT = np.float32([-20.0, 56.1, 10.0])  # 26
-    P3D_SELLION = np.float32([0.0, 0.0, 0.0])  # 27
-    P3D_NOSE = np.float32([21.1, 0.0, -48.0])  # 30
-    P3D_SUB_NOSE = np.float32([5.0, 0.0, -52.0])  # 33
-    P3D_RIGHT_EYE = np.float32([-20.0, -65.5, -5.0])  # 36
-    P3D_RIGHT_TEAR = np.float32([-10.0, -40.5, -5.0])  # 39
-    P3D_LEFT_TEAR = np.float32([-10.0, 40.5, -5.0])  # 42
-    P3D_LEFT_EYE = np.float32([-20.0, 65.5, -5.0])  # 45
-    # P3D_LIP_RIGHT = np.float32([-20.0, 65.5,-5.0]) #48
-    # P3D_LIP_LEFT = np.float32([-20.0, 65.5,-5.0]) #54
-    P3D_STOMION = np.float32([10.0, 0.0, -75.0])  # 62
+    # # The points to track
+    # # These points are the ones used by PnP
+    # # to estimate the 3D pose of the face
+    # TRACKED_POINTS = [0, 4, 8, 12, 16, 17, 26, 27, 30, 33, 36, 39, 42, 45, 62]
+    #
+    # # This matrix contains the 3D points of the
+    # # 11 landmarks we want to find. It has been
+    # # obtained from antrophometric measurement
+    # # on the human head.
+    # landmarks_3D = np.float32([P3D_RIGHT_SIDE,
+    #                            P3D_GONION_RIGHT,
+    #                            P3D_MENTON,
+    #                            P3D_GONION_LEFT,
+    #                            P3D_LEFT_SIDE,
+    #                            P3D_FRONTAL_BREADTH_RIGHT,
+    #                            P3D_FRONTAL_BREADTH_LEFT,
+    #                            P3D_SELLION,
+    #                            P3D_NOSE,
+    #                            P3D_SUB_NOSE,
+    #                            P3D_RIGHT_EYE,
+    #                            P3D_RIGHT_TEAR,
+    #                            P3D_LEFT_TEAR,
+    #                            P3D_LEFT_EYE,
+    #                            P3D_STOMION])
 
-    # The points to track
-    # These points are the ones used by PnP
-    # to estimate the 3D pose of the face
-    TRACKED_POINTS = [0, 4, 8, 12, 16, 17, 26, 27, 30, 33, 36, 39, 42, 45, 62]
+    # From https://github.com/chili-epfl/attention-tracker/blob/master/src/head_pose_estimation.hpp
+    P3D_SELLION = [0., 0., 0.]  # 27
+    P3D_RIGHT_EYE = [-20., -65.5, -5.]  # 36
+    P3D_LEFT_EYE = [-20., 65.5, -5.]  # 45
+    P3D_RIGHT_EAR = [-100., -77.5, -6.]  # 0
+    P3D_LEFT_EAR = [-100., 77.5, -6.]  # 16
+    P3D_NOSE = [21.0, 0., -48.0]  # 30
+    P3D_STOMMION = [10.0, 0., -75.0]
+    P3D_MENTON = [0., 0., -133.0]  # 8
 
-    # This matrix contains the 3D points of the
-    # 11 landmarks we want to find. It has been
-    # obtained from antrophometric measurement
-    # on the human head.
-    landmarks_3D = np.float32([P3D_RIGHT_SIDE,
-                               P3D_GONION_RIGHT,
-                               P3D_MENTON,
-                               P3D_GONION_LEFT,
-                               P3D_LEFT_SIDE,
-                               P3D_FRONTAL_BREADTH_RIGHT,
-                               P3D_FRONTAL_BREADTH_LEFT,
-                               P3D_SELLION,
-                               P3D_NOSE,
-                               P3D_SUB_NOSE,
-                               P3D_RIGHT_EYE,
-                               P3D_RIGHT_TEAR,
-                               P3D_LEFT_TEAR,
-                               P3D_LEFT_EYE,
-                               P3D_STOMION])
+    TRACKED_POINTS = [27, 36, 45, 0, 16, 8, 30, ]
+
+    landmarks_3D = np.float32([P3D_SELLION, P3D_RIGHT_EYE, P3D_LEFT_EYE, P3D_RIGHT_EAR, P3D_LEFT_EAR, P3D_MENTON, P3D_NOSE])
 
     def __init__(self, camera_w, camera_h):
+        # TODO: when camera width and hight is not 640 and 480, it doesn't work for some reason...
         # Defining the camera matrix.
         # To have better result it is necessary to find the focal
         # lenght of the camera. fx/fy are the focal lengths (in pixels)
@@ -558,5 +593,39 @@ def get_blink_score(facial_features_3d):
     # average the eye aspect ratio together for both eyes
     ear = (left_e_a_r + right_e_a_r) / 2.0
     return ear
+
+# def get_direction_from_pose(pose_diff):
+#     """
+#     This is for controlling the movement of cat or deafy using head pose.
+#     :param pose_diff: The difference in pose when comparing to the calibrated pose. should be (yaw, pitch, roll)
+#     :return: (bool - true if the object should move ,a float from 0~2pi representing the direction)
+#     """
+#
+#     dy = pose_diff[2]
+#     # In pygame display left and right is reversed from what we usually perceive.
+#     dx = -pose_diff[1]
+#
+#     if abs(dx) <= POSE_MOVE_LOWER_THRESHOLD and abs(dy) <= POSE_MOVE_LOWER_THRESHOLD:
+#         return (False, 0)
+#     else:
+#         direction = np.arctan2(dy, dx) + math.pi # [0, 2pi]
+#         return (True, direction)
+
+def get_direction_from_line(line):
+    """
+    This is for controlling the movement of cat or deafy using head pose.
+    :param pose_diff: The difference in pose when comparing to the calibrated pose. should be (yaw, pitch, roll)
+    :return: (bool - true if the object should move ,a float from 0~2pi representing the direction)
+    """
+
+    dy = line[0][1] - line[1][1]
+    # In pygame display left and right is reversed from what we usually perceive.
+    dx = -(line[0][0] - line[1][0])
+
+    if dist.euclidean(line[0], line[1]) <= POSE_MOVE_LOWER_THRESHOLD:
+        return (False, 0)
+    else:
+        direction = np.arctan2(dy, dx) + math.pi  # [0, 2pi]
+        return (True, direction)
 
 # Face swapping https://matthewearl.github.io/2015/07/28/switching-eds-with-python/

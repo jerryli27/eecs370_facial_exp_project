@@ -18,9 +18,7 @@ import pygame
 import pygame.camera
 from pygame.locals import *
 
-from facial_landmark_util import get_mouth_open_score, get_mouth_left_corner_score, get_mouth_right_corner_score, \
-    FacialLandmarkDetector, tuple_to_rectangle, HeadPoseEstimator, get_mouth_right_corner_to_center_dist,\
-    get_mouth_left_corner_to_center_dist, get_blink_score, get_left_blink_score, get_right_blink_score
+from facial_landmark_util import *
 from align_dlib import AlignDlib
 
 #game constants
@@ -30,12 +28,6 @@ SCREEN_RECT= Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 FACIAL_LANDMARK_PREDICTOR_WIDTH = 320
 RESIZE_RATIO = (float(SCREEN_WIDTH) / FACIAL_LANDMARK_PREDICTOR_WIDTH)
 MOUTH_RATIO_LOWER_THRESHOLD = 0.2
-
-CAMERA_INPUT_HEIGHT = 480
-CAMERA_INPUT_WIDTH = 640
-CAMERA_DISPLAY_HEIGHT = SCREEN_HEIGHT
-CAMERA_DISPLAY_WIDTH = SCREEN_WIDTH
-CAMERA_DISPLAY_SIZE = (CAMERA_DISPLAY_WIDTH, CAMERA_DISPLAY_HEIGHT)
 
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
@@ -94,7 +86,7 @@ class VideoCapturePlayer(object):
 
         self.align_dlib_object = AlignDlib()
         # HeadPoseEstimator
-        self.head_pose_estimator = HeadPoseEstimator(CAMERA_INPUT_WIDTH, CAMERA_DISPLAY_HEIGHT)
+        self.head_pose_estimator = HeadPoseEstimator(CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT)
 
 
     def init_cams(self, which_cam_idx):
@@ -139,7 +131,7 @@ class VideoCapturePlayer(object):
         # else:
         #     self.camera_shot_raw = self.camera.get_image(self.display)
         self.camera_shot_raw = self.camera.get_image(self.camera_shot_raw)
-        self.camera_shot = pygame.transform.scale(self.camera_shot_raw, CAMERA_DISPLAY_SIZE)
+        self.camera_shot = pygame.transform.scale(self.camera_shot_raw, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
     def blit_camera_shot(self, blit_location):
         """
@@ -178,7 +170,6 @@ class VideoCapturePlayer(object):
             # The speed is directly related to FACIAL_LANDMARK_PREDICTOR_WIDTH.
             face_coordinates, facial_features = facial_landmark_detector.get_features(self.camera_shot_raw)
             if len(face_coordinates) > 0:
-                assert facial_features[0].shape[0] == 68
                 # print("Detected %d face%s." % (len(face_coordinates), "s" if len(face_coordinates) > 1 else ""))
                 face_index = facial_landmark_detector.get_largest_face_index(face_coordinates)
 
@@ -192,17 +183,19 @@ class VideoCapturePlayer(object):
                 # So maybe calibrate and set a relative threshold for controlling.
                 # print(np.array(head_pose[0]) * 180 / np.pi)
                 # print("Reconstructed 3d of the nose (point 34): ",
-                #       self.head_pose_estimator.two_d_to_three_d(facial_features[face_index][33],
+                #       self.hpe.two_d_to_three_d(facial_features[face_index][33],
                 #                                               head_pose[0], head_pose[1]))
                 # Get the rotation invariant facial features.
                 facial_features_3d = self.head_pose_estimator.facial_features_to_3d(facial_features[face_index],
                                                                                         head_pose[0], head_pose[1])
                 # This is the difference in pose, i.e. yaw, pitch, and roll
-                pose_dif = np.array([[facial_landmark_detector.norm_roll],
-                                     [facial_landmark_detector.norm_pitch],
-                                     [facial_landmark_detector.norm_yaw]]) - head_pose[0]
+                pose_diff = facial_landmark_detector.get_pose_diff(head_pose[0])
 
-
+                # print("left-right difference: %s" % (str(pose_diff[0])))
+                # print("Pose difference: %s" % (str(pose_diff)))
+                # is_moving, direction = get_direction_from_pose(pose_diff)
+                is_moving, direction = get_direction_from_line(head_pose[2][0])
+                # print("Direction %f" %direction)
 
                 # min_y, min_z = np.min(facial_features_3d[:,1:], axis=0).tolist()
                 # max_y, max_z = np.max(facial_features_3d[:,1:], axis=0).tolist()
@@ -219,17 +212,17 @@ class VideoCapturePlayer(object):
                 # else:
                 #     print("Mouth closed degree: %f" % (mouth_open_degree))
 
-                mouth_left_corner_score = get_mouth_left_corner_score(facial_features_3d,
-                                                                      facial_landmark_detector.norm_mouth_left_corner_to_center_dist)
-                mouth_right_corner_score = get_mouth_right_corner_score(facial_features_3d,
-                                                                      facial_landmark_detector.norm_mouth_right_corner_to_center_dist)
-
-                # mouth_left_corner_score = get_mouth_left_corner_to_center_dist(facial_features_3d)
-                # mouth_right_corner_score = get_mouth_right_corner_to_center_dist(facial_features_3d)
-                # print("Mouth left corner score: %f, right corner score: %f, raw: %f"
-                #       %(mouth_left_corner_score, mouth_right_corner_score, pose_dif[0]))
-                print("%f,%f,%f"
-                      %(mouth_left_corner_score, mouth_right_corner_score, pose_dif[0]))
+                # mouth_left_corner_score = get_mouth_left_corner_score(facial_features_3d,
+                #                                                       facial_landmark_detector.norm_mouth_left_corner_to_center_dist)
+                # mouth_right_corner_score = get_mouth_right_corner_score(facial_features_3d,
+                #                                                       facial_landmark_detector.norm_mouth_right_corner_to_center_dist)
+                #
+                # # mouth_left_corner_score = get_mouth_left_corner_to_center_dist(facial_features_3d)
+                # # mouth_right_corner_score = get_mouth_right_corner_to_center_dist(facial_features_3d)
+                # # print("Mouth left corner score: %f, right corner score: %f, raw: %f"
+                # #       %(mouth_left_corner_score, mouth_right_corner_score, pose_diff[0]))
+                # print("%f,%f,%f"
+                #       %(mouth_left_corner_score, mouth_right_corner_score, pose_diff[0]))
 
                 # Get blink scores
                 # left_blink_score = get_left_blink_score(facial_features_3d)
@@ -237,8 +230,8 @@ class VideoCapturePlayer(object):
                 # print("Blink left eye score: %f, right eye score: %f"
                 #       %(left_blink_score, right_blink_score))
 
-                aligned_face = self.align_dlib_object.align(128, rgbImg=imutils.resize(
-                facial_landmark_detector.get_image_from_surface(self.camera_shot_raw)[..., :3],FACIAL_LANDMARK_PREDICTOR_WIDTH),)
+                aligned_face = self.align_dlib_object.align(128,
+                                                            rgbImg=imutils.resize(get_image_from_surface(self.camera_shot_raw)[..., :3],FACIAL_LANDMARK_PREDICTOR_WIDTH),)
 
 
             # clear/erase the last drawn sprites
@@ -263,9 +256,10 @@ class VideoCapturePlayer(object):
                 pygame.draw.line(self.display, (0,0,255), head_pose[2][2][0], head_pose[2][2][1])
 
 
+
             pygame.display.flip()
             self.clock.tick()
-            # print (self.clock.get_fps())
+            print (self.clock.get_fps())
 
 # This is for testing a custom Sprite object. Usually if we want to draw a circle we can use pygame.draw.circle. You
 # can load different images to the circle.
