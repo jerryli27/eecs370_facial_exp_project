@@ -12,9 +12,14 @@ BATTLE_SCREEN_RECT= Rect(0, 0, BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT)
 HP_BAR_DEAFY_BOTTOMLEFT = (60, 600)
 HP_BAR_CAT_BOTTOMLEFT = (480, 600)
 
+FACE_DEAFY_BOTTOMLEFT = (200, 635)
+FACE_CAT_BOTTOMLEFT = (340, 635)
+
 FACIAL_LANDMARK_PREDICTOR_WIDTH = 320
+# Command to find supported camera resolution: v4l2-ctl --list-formats-ext
 CAMERA_INPUT_HEIGHT = 480 # 720 # 480 * 2
 CAMERA_INPUT_WIDTH = 640 # 1280 # 640 * 2
+CAMERA_INPUT_SIZE = (CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT)
 CAMERA_DISPLAY_HEIGHT = BATTLE_SCREEN_HEIGHT / 4
 CAMERA_DISPLAY_WIDTH = BATTLE_SCREEN_WIDTH / 4
 CAMERA_DISPLAY_SIZE = (CAMERA_DISPLAY_WIDTH, CAMERA_DISPLAY_HEIGHT)
@@ -66,6 +71,7 @@ YELLOW = (255, 255, 0)
 DARK_RED = (100, 0, 0)
 
 # Facial landmark constants
+SELLION_INDEX = 27
 MOUTH_SCORE_SHOOT_THRESHOLD = 0.8  # The mouth score has to be at least this big for Deafy to start shooting.
 MOUTH_SCORE_RECHARGE_THRESHOLD = 0.4  # The mouth score has to be at least this big for Deafy to start shooting.
 # The jump speed is the facial feature score times this factor: score * BLINK_JUMP_SPEED_FACTOR pixels per second.

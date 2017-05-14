@@ -23,6 +23,7 @@ from bullet import *
 from obstacle import *
 from deafy_cat import *
 from hp_bar import *
+from face_illustration import *
 
 
 # Command line argument parser.
@@ -161,31 +162,9 @@ class MainScreen(object):
         self.__dict__.update(**argd)
         super(MainScreen, self).__init__(**argd)
 
-        # create a display surface. standard pygame stuff
+        # create a display image. standard pygame stuff
         self.display = pygame.display.set_mode( self.size, 0 )
         self.background = pygame.Surface(GAME_SCREEN_RECT.size)
-
-        # Initialize camera
-        if ARGS.camera:
-            # HeadPoseEstimator
-            self.hpe = HeadPoseEstimator(CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT)
-
-            if ARGS.deafy_camera_index is not None:
-                # Facial landmark detector.
-                self.deafy_fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
-                self.init_cams(ARGS.deafy_camera_index)
-                self.deafy_cam_on = True
-            else:
-                self.deafy_fld = None
-                self.deafy_cam_on = False
-            if ARGS.cat_camera_index is not None:
-                # Facial landmark detector.
-                self.cat_fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
-                self.init_cams(ARGS.cat_camera_index)
-                self.cat_cam_on = True
-            else:
-                self.cat_fld = None
-                self.cat_cam_on = False
 
         # Load graphics
         deafy_sheet = SpriteSheet("data/Undertale_Annoying_Dog.png")
@@ -226,7 +205,34 @@ class MainScreen(object):
         dialog.Dialog.containers = self.all
         Bullet.containers = self.all, self.front_group
         HPBar.containers = self.all, self.background_group
+        Face.containers = self.all, self.background_group
 
+
+        # Initialize camera
+        if ARGS.camera:
+            # HeadPoseEstimator
+            self.hpe = HeadPoseEstimator(CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT)
+
+            if ARGS.deafy_camera_index is not None:
+                # Facial landmark detector.
+                self.deafy_fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
+                self.init_cams(ARGS.deafy_camera_index)
+                self.deafy_cam_on = True
+                self.deafy_player_face = Face(CAMERA_INPUT_SIZE,FACE_DEAFY_BOTTOMLEFT)
+            else:
+                self.deafy_fld = None
+                self.deafy_cam_on = False
+                self.deafy_player_face = None
+            if ARGS.cat_camera_index is not None:
+                # Facial landmark detector.
+                self.cat_fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
+                self.init_cams(ARGS.cat_camera_index)
+                self.cat_cam_on = True
+                self.cat_player_face = Face(CAMERA_INPUT_SIZE, FACE_CAT_BOTTOMLEFT)
+            else:
+                self.cat_fld = None
+                self.cat_cam_on = False
+                self.cat_player_face = None
 
     def init_battle(self):
 
@@ -313,8 +319,8 @@ class MainScreen(object):
         # starts the camera
         self.camera[which_cam_idx].start()
 
-        # create a surface to capture to.  for performance purposes, you want the
-        # bit depth to be the same as that of the display surface.
+        # create a image to capture to.  for performance purposes, you want the
+        # bit depth to be the same as that of the display image.
         self.camera_shot_raw[which_cam_idx] = pygame.surface.Surface((CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT), 0, self.display)
         if display_location is None:
             self.camera_default_display_location[which_cam_idx] = (BATTLE_SCREEN_WIDTH - CAMERA_DISPLAY_WIDTH,
@@ -332,7 +338,7 @@ class MainScreen(object):
         #     self.camera_shot_raw = self.camera.get_image(self.camera_shot_raw)
         # if 0:
         #     self.camera_shot_raw = self.camera.get_image(self.camera_shot_raw)
-        #     # blit it to the display surface.  simple!
+        #     # blit it to the display image.  simple!
         #     self.display.blit(self.camera_shot_raw, (0, 0))
         # else:
         #     self.camera_shot_raw = self.camera.get_image(self.display)
@@ -387,7 +393,7 @@ class MainScreen(object):
             self.blit_camera_shot((0, 0), which_cam_idx)
             pygame.display.flip()
 
-    def _get_facial_scores(self, which_cam_idx, obj, fld):
+    def _get_facial_scores(self, which_cam_idx, obj, fld, face_illustration):
         self.get_camera_shot(which_cam_idx)
         # Now use the facial landmark defector
         # This step decreases the frame rate from 30 fps to 6fps. So we need to do something about it.
@@ -404,6 +410,9 @@ class MainScreen(object):
             # Get the rotation invariant facial features.
             facial_features_3d = self.hpe.facial_features_to_3d(facial_features_list[face_index],
                                                                 head_pose[0], head_pose[1])
+
+            # Update face illustration
+            face_illustration.refresh_features(face_coordinates_list[face_index], facial_features_list[face_index], head_pose[2])
 
             # Estimate pose difference from facing forward.
             pose_diff = fld.get_pose_diff(head_pose[0])
@@ -526,9 +535,9 @@ class MainScreen(object):
 
             if ARGS.camera and not self.is_dialog_active:
                 if self.deafy_cam_on:
-                    self._get_facial_scores(ARGS.deafy_camera_index, self.deafy, self.deafy_fld)
+                    self._get_facial_scores(ARGS.deafy_camera_index, self.deafy, self.deafy_fld, self.deafy_player_face)
                 if self.cat_cam_on:
-                    self._get_facial_scores(ARGS.cat_camera_index, self.cat, self.cat_fld)
+                    self._get_facial_scores(ARGS.cat_camera_index, self.cat, self.cat_fld, self.cat_player_face)
 
 
             # Now go through the bullets and see whether one hits anything
@@ -578,6 +587,7 @@ class MainScreen(object):
                 if self.deafy_cam_on:
                     self.blit_camera_shot(self.camera_default_display_location[ARGS.deafy_camera_index],
                                           ARGS.deafy_camera_index)
+
                 if self.cat_cam_on:
                     self.blit_camera_shot(self.camera_default_display_location[ARGS.deafy_camera_index],
                                           ARGS.cat_camera_index)

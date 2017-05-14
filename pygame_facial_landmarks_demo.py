@@ -69,7 +69,7 @@ class VideoCapturePlayer(object):
         self.__dict__.update(**argd)
         super(VideoCapturePlayer, self).__init__(**argd)
 
-        # create a display surface. standard pygame stuff
+        # create a display image. standard pygame stuff
         self.display = pygame.display.set_mode( self.size, 0 )
         self.init_cams(1)
         self.background = pygame.Surface(SCREEN_RECT.size)
@@ -111,8 +111,8 @@ class VideoCapturePlayer(object):
 
         self.clock = pygame.time.Clock()
 
-        # create a surface to capture to.  for performance purposes, you want the
-        # bit depth to be the same as that of the display surface.
+        # create a image to capture to.  for performance purposes, you want the
+        # bit depth to be the same as that of the display image.
         self.camera_shot_raw = pygame.surface.Surface((CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT), 0, self.display)
         self.camera_default_display_location = (SCREEN_WIDTH - CAMERA_DISPLAY_WIDTH, SCREEN_HEIGHT - CAMERA_DISPLAY_HEIGHT)
 
@@ -126,7 +126,7 @@ class VideoCapturePlayer(object):
         #     self.camera_shot_raw = self.camera.get_image(self.camera_shot_raw)
         # if 0:
         #     self.camera_shot_raw = self.camera.get_image(self.camera_shot_raw)
-        #     # blit it to the display surface.  simple!
+        #     # blit it to the display image.  simple!
         #     self.display.blit(self.camera_shot_raw, (0, 0))
         # else:
         #     self.camera_shot_raw = self.camera.get_image(self.display)

@@ -197,7 +197,7 @@ class FacialLandmarkDetector(object):
         This function should be called before using other facial landmark utility functions. It measures the human face
         features under normal condition. Ideally the pygame function should loop until the calibrate_face function
         returns true, then start the game.
-        :param surface: a pygame surface. It should be the pygame camera.
+        :param surface: a pygame image. It should be the pygame camera.
         :param head_pose_estimator: a HeadPoseEstimator object.
         :return: True if calibration finishes. False if otherwise.
         """
@@ -380,9 +380,9 @@ class HeadPoseEstimator():
 
             # Instead of returning the points themselves, return the line from Sellion to those points, which will be
             # more useful.
-            lines = [(facial_features[27], imgpts[0]),
-                     (facial_features[27], imgpts[1]),
-                     (facial_features[27], imgpts[2])]
+            lines = [(facial_features[SELLION_INDEX], imgpts[0]),
+                     (facial_features[SELLION_INDEX], imgpts[1]),
+                     (facial_features[SELLION_INDEX], imgpts[2])]
 
             return rvec, tvec, lines
         else:
@@ -514,7 +514,7 @@ def get_mouth_left_corner_to_center_dist(facial_features_3d):
     # Can't use center of mouth because the facial landmark detector distorts the mouth when I turn to the side.
     nose_to_menton_point = np.average((facial_features_3d[33], facial_features_3d[8]), axis=0)
     left_mouth_point = facial_features_3d[60]
-    between_eyes_to_menton_point = np.average((facial_features_3d[27], facial_features_3d[8]), axis=0)
+    between_eyes_to_menton_point = np.average((facial_features_3d[SELLION_INDEX], facial_features_3d[8]), axis=0)
     # Ignore z the height
     ret = np.average((dist.euclidean(nose_to_menton_point[:2], left_mouth_point[:2]), dist.euclidean(between_eyes_to_menton_point[:2], left_mouth_point[:2])))
     return ret
@@ -537,7 +537,7 @@ def get_mouth_right_corner_to_center_dist(facial_features_3d):
     # Can't use center of mouth because the facial landmark detector distorts the mouth when I turn to the side.
     nose_to_menton_point = np.average((facial_features_3d[33], facial_features_3d[8]), axis=0)
     right_mouth_point = facial_features_3d[54]
-    between_eyes_to_menton_point = np.average((facial_features_3d[27], facial_features_3d[8]), axis=0)
+    between_eyes_to_menton_point = np.average((facial_features_3d[SELLION_INDEX], facial_features_3d[8]), axis=0)
     # Ignore z the height
     ret = np.average((dist.euclidean(nose_to_menton_point[:2], right_mouth_point[:2]),
                       dist.euclidean(between_eyes_to_menton_point[:2], right_mouth_point[:2])))
