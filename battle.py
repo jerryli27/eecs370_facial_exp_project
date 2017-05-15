@@ -434,7 +434,7 @@ class MainScreen(object):
 
             # TODO: implement bullet CD aka recharge in deafy and cat. Replace deafy_bullet_need_recharge.
             if mouth_open_score >= MOUTH_SCORE_SHOOT_THRESHOLD and not self.deafy_bullet_need_recharge:
-                self.bullets.append(obj.emit_bullets("BOUNCE", "RIGHT", bullet_color=BLUE))
+                self.bullets.append(obj.emit_bullets("BOUNCE"))
                 self.deafy_bullet_need_recharge = True
             elif mouth_open_score <= MOUTH_SCORE_RECHARGE_THRESHOLD:
                 self.deafy_bullet_need_recharge = False
@@ -523,12 +523,12 @@ class MainScreen(object):
                         self.is_dialog_active = False
             if keys[K_z]:
                 # emit normal bullet
-                self.bullets.append(self.deafy.emit_bullets("NORMAL", "RIGHT", bullet_color=YELLOW))
+                self.bullets.append(self.deafy.emit_bullets("NORMAL"))
             if keys[K_x]:
                 # emit bounce bullet
-                self.bullets.append(self.deafy.emit_bullets("BOUNCE", "RIGHT", bullet_color=BLUE))
+                self.bullets.append(self.deafy.emit_bullets("BOUNCE"))
             if keys[K_c]:
-                bullets = self.deafy.emit_bullets("SPREAD", "RIGHT", bullet_color=RED)
+                bullets = self.deafy.emit_bullets("SPREAD")
                 for bullet in bullets:
                     self.bullets.append(bullet)
 

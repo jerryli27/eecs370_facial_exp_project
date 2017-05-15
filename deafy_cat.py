@@ -16,6 +16,11 @@ class Deafy(pygame.sprite.Sprite):
     _FAIL_INDEX = 4
     _JUMP_SOUND_INDEX = 1
     _VICTORY_SOUND_INDEX = 2
+    _BULLET_COLORS = {
+        'NORMAL': BLUE,
+        'BOUNCE': DARK_BLUE,
+        'SPREAD': LIGHT_BLUE
+    }
 
     def __init__(self, pos=BATTLE_SCREEN_RECT.bottomright):
         # Notice that bottomright instead of bottomleft is used for deafy, because deafy is facing right.
@@ -102,7 +107,7 @@ class Deafy(pygame.sprite.Sprite):
             self.is_running = False
             self.change_image(self._FAIL_INDEX)
 
-    def emit_bullets(self, bullet_type, object_orientation, bullet_speed=BULLET_SPEED, bullet_color=BLACK):
+    def emit_bullets(self, bullet_type, object_orientation='RIGHT', bullet_speed=BULLET_SPEED):
         if bullet_speed <= 0:
             raise AttributeError("Bullet speed must be positive.")
         if object_orientation == "LEFT":
@@ -115,6 +120,7 @@ class Deafy(pygame.sprite.Sprite):
             # Move the bullet a little to avoid hiting the object firing the bullet.
             bullet_location = (bullet_location[0] + BULLET_SIZE, bullet_location[1])
 
+        bullet_color = self._BULLET_COLORS[bullet_type]
         if bullet_type == "NORMAL":
             return NormalBullet(dx=bullet_speed, pos=bullet_location, ap=self.ap, color=bullet_color,
                                 bullet_size=BULLET_SIZE)
@@ -136,8 +142,17 @@ class Deafy(pygame.sprite.Sprite):
 
 
 class CatOpponent(Deafy):
+    _BULLET_COLORS = {
+        'NORMAL': RED,
+        'BOUNCE': DARK_RED,
+        'SPREAD': LIGHT_RED
+    }
+
     def create_hp_bar(self):
         return HPBar(hp_max=self.hp, pos=HP_BAR_CAT_BOTTOMLEFT, name='KITTY')
+
+    def emit_bullets(self, bullet_type, object_orientation='LEFT', bullet_speed=BULLET_SPEED):
+        return Deafy.emit_bullets(bullet_type, 'RIGHT', bullet_speed)
 
 
 class CatObstacle(BackgroundObjects):

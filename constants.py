@@ -69,6 +69,9 @@ GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 DARK_RED = (100, 0, 0)
+DARK_BLUE = (0, 0, 100)
+LIGHT_RED = (255, 200, 200)
+LIGHT_BLUE = (200, 200, 255)
 
 # Facial landmark constants
 SELLION_INDEX = 27
