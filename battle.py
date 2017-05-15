@@ -433,11 +433,12 @@ class MainScreen(object):
             mouth_open_score = get_mouth_open_score(facial_features_3d)
 
             # TODO: implement bullet CD aka recharge in deafy and cat. Replace deafy_bullet_need_recharge.
-            if mouth_open_score >= MOUTH_SCORE_SHOOT_THRESHOLD and not self.deafy_bullet_need_recharge:
-                self.bullets.append(obj.emit_bullets("BOUNCE"))
-                self.deafy_bullet_need_recharge = True
+            if mouth_open_score >= MOUTH_SCORE_SHOOT_THRESHOLD:
+                bullet = obj.emit_bullets("BOUNCE")
+                if bullet:
+                    self.bullets.append(bullet)
             elif mouth_open_score <= MOUTH_SCORE_RECHARGE_THRESHOLD:
-                self.deafy_bullet_need_recharge = False
+                obj.recharge_bullet("BOUNCE")
 
             print("Mouth open score: %f" % (mouth_open_score))
 
@@ -523,14 +524,30 @@ class MainScreen(object):
                         self.is_dialog_active = False
             if keys[K_z]:
                 # emit normal bullet
-                self.bullets.append(self.deafy.emit_bullets("NORMAL"))
+                bullet = self.deafy.emit_bullets("NORMAL", recharge=True)   # this is to make keyboard input easier (no recharge)
+                if bullet:
+                    self.bullets.append(bullet)
             if keys[K_x]:
                 # emit bounce bullet
-                self.bullets.append(self.deafy.emit_bullets("BOUNCE"))
-            if keys[K_c]:
-                bullets = self.deafy.emit_bullets("SPREAD")
-                for bullet in bullets:
+                bullet = self.deafy.emit_bullets("BOUNCE", recharge=True)
+                if bullet:
                     self.bullets.append(bullet)
+            if keys[K_c]:
+                bullets = self.deafy.emit_bullets("SPREAD", recharge=True)
+                if bullets:
+                    self.bullets = self.bullets + bullets
+            if keys[K_j]:
+                bullet = self.cat.emit_bullets("NORMAL", recharge=True)
+                if bullet:
+                    self.bullets.append(bullet)
+            if keys[K_k]:
+                bullet = self.cat.emit_bullets("BOUNCE", recharge=True)
+                if bullet:
+                    self.bullets.append(bullet)
+            if keys[K_l]:
+                bullets = self.cat.emit_bullets("SPREAD", recharge=True)
+                if bullets:
+                    self.bullets = self.bullets + bullets
 
 
             if ARGS.camera and not self.is_dialog_active:

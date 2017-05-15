@@ -111,12 +111,9 @@ class SpreadBullets(Bullet):
                 bullet_location = bullet.rect.midleft
                 # clone two bullets, each offset from original bullet in y axis
                 bullet_location1 = (bullet_location[0] - BULLET_SIZE, bullet_location[1] + offset)
-                bullet_location1 = (bullet_location[0] - BULLET_SIZE, bullet_location[1] - offset)
-                bullet_speed = -bullet_speed
+                bullet_location2 = (bullet_location[0] - BULLET_SIZE, bullet_location[1] - offset)
             else:
                 bullet_location = bullet.rect.midright
-
-
                 bullet_location1 = (bullet_location[0] + BULLET_SIZE, bullet_location[1] + offset)
                 bullet_location2 = (bullet_location[0] + BULLET_SIZE, bullet_location[1] - offset)
 

@@ -1,4 +1,5 @@
 import math
+import time
 
 from constants import *
 from background_objects import *
@@ -21,6 +22,11 @@ class Deafy(pygame.sprite.Sprite):
         'BOUNCE': DARK_BLUE,
         'SPREAD': LIGHT_BLUE
     }
+    _BULLET_CD_SECS = {
+        'NORMAL': 1,
+        'BOUNCE': 2,
+        'SPREAD': 3,
+    }
 
     def __init__(self, pos=BATTLE_SCREEN_RECT.bottomright):
         # Notice that bottomright instead of bottomleft is used for deafy, because deafy is facing right.
@@ -38,6 +44,8 @@ class Deafy(pygame.sprite.Sprite):
         self.hp = PLAYER_HP
         self.ap = PLAYER_AP
         self.hp_bar = self.create_hp_bar()
+        self.bullet_recharged = {bullet_type: True for bullet_type in self._BULLET_COLORS.keys()}
+        self.bullet_last_fire = {bullet_type: None for bullet_type in self._BULLET_COLORS.keys()}
 
     # def move(self, pos):
     #     self.rect = self.image.get_rect(bottomright=pos)
@@ -107,7 +115,18 @@ class Deafy(pygame.sprite.Sprite):
             self.is_running = False
             self.change_image(self._FAIL_INDEX)
 
-    def emit_bullets(self, bullet_type, object_orientation='RIGHT', bullet_speed=BULLET_SPEED):
+    def emit_bullets(self, bullet_type, object_orientation='RIGHT', bullet_speed=BULLET_SPEED, recharge=False):
+        if not (bullet_type in self._BULLET_COLORS.keys()):
+            raise IndexError('Bullet type %s not valid.' % bullet_type)
+
+        # handle the CD
+        now, last = time.time(), self.bullet_last_fire[bullet_type]
+        if (not self.bullet_recharged[bullet_type]) or (last and now < last + self._BULLET_CD_SECS[bullet_type]):
+            print 'CD not done yet; wait %d more secs' % (last+self._BULLET_CD_SECS[bullet_type]-now)
+            return None
+        self.bullet_last_fire[bullet_type] = now
+        self.bullet_recharged[bullet_type] = recharge
+
         if bullet_speed <= 0:
             raise AttributeError("Bullet speed must be positive.")
         if object_orientation == "LEFT":
@@ -133,6 +152,9 @@ class Deafy(pygame.sprite.Sprite):
             bullets_list = spread_bullets.create_bullets()
             return bullets_list
 
+    def recharge_bullet(self, bullet_type):
+        self.bullet_recharged[bullet_type] = True
+
     def create_hp_bar(self):
         return HPBar(hp_max=self.hp, pos=HP_BAR_DEAFY_BOTTOMLEFT, name='DEAFY')
 
@@ -151,8 +173,8 @@ class CatOpponent(Deafy):
     def create_hp_bar(self):
         return HPBar(hp_max=self.hp, pos=HP_BAR_CAT_BOTTOMLEFT, name='KITTY')
 
-    def emit_bullets(self, bullet_type, object_orientation='LEFT', bullet_speed=BULLET_SPEED):
-        return Deafy.emit_bullets(bullet_type, 'RIGHT', bullet_speed)
+    def emit_bullets(self, bullet_type, object_orientation='LEFT', bullet_speed=BULLET_SPEED, recharge=False):
+        return Deafy.emit_bullets(self, bullet_type, 'LEFT', bullet_speed, recharge)
 
 
 class CatObstacle(BackgroundObjects):
