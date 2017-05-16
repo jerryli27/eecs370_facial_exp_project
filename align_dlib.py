@@ -21,6 +21,8 @@ import cv2
 import dlib
 import numpy as np
 
+from constants import *
+
 
 TEMPLATE = np.float32([
     (0.0792396913815, 0.339223741112), (0.0829219487236, 0.456955367943),
@@ -106,7 +108,8 @@ class AlignDlib:
         try:
             return self.detector(rgbImg, 1)
         except Exception as e:
-            print("Warning: {}".format(e))
+            if DEBUG_LEVEL >= DEBUG_PRINT_UNEXPECTED_ERROR:
+                print("Warning: {}".format(e))
             # In rare cases, exceptions are thrown.
             return []
 

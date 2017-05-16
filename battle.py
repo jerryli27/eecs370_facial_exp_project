@@ -24,6 +24,7 @@ from obstacle import *
 from deafy_cat import *
 from hp_bar import *
 from face_illustration import *
+from text import Text
 
 
 # Command line argument parser.
@@ -37,12 +38,17 @@ parser.add_argument("--deafy_camera_index", dest="deafy_camera_index", type=int,
                     help="The camera index for Deafy player.")
 parser.add_argument("--cat_camera_index", dest="cat_camera_index", type=int,
                     help="The camera index for Cat player.")
+parser.add_argument("--debug_level", dest="debug_level", type=int, default=0,
+                    help="0 For only printing necessary message during gameplay. "
+                         "1 for printing unexpected errors that does not cause game to stop."
+                         "2 and above for printing regular debugging messages.")
 
 ARGS = parser.parse_args()
 
 if ARGS.camera and ARGS.deafy_camera_index is None and ARGS.cat_camera_index is None:
     parser.error("To use the camera, please specify either the camera index for deafy or for cat, or both.")
 
+DEBUG_LEVEL = ARGS.debug_level
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 
@@ -79,7 +85,8 @@ def load_sound(file):
         sound = pygame.mixer.Sound(file)
         return sound
     except pygame.error:
-        print ('Warning, unable to load, %s' % file)
+        if DEBUG_LEVEL >= DEBUG_PRINT_UNEXPECTED_ERROR:
+            print ('Warning, unable to load, %s' % file)
     return dummysound()
 
 def fire_bullet(object_firing, object_orientation, bullet_speed=BULLET_SPEED, bullet_color=BLACK):
@@ -157,6 +164,7 @@ class Stage(object):
 class MainScreen(object):
 
     size = (GAME_SCREEN_WIDTH, GAME_SCREEN_HEIGHT)
+    _FPS_BLIT_BOTTOM_LEFT = (0 + 5, GAME_SCREEN_HEIGHT - 5)
 
     def __init__(self, **argd):
         self.__dict__.update(**argd)
@@ -165,6 +173,9 @@ class MainScreen(object):
         # create a display image. standard pygame stuff
         self.display = pygame.display.set_mode( self.size, 0 )
         self.background = pygame.Surface(GAME_SCREEN_RECT.size)
+
+        # Create text display helper class.
+        self.text = Text()
 
         # Load graphics
         deafy_sheet = SpriteSheet("data/Undertale_Annoying_Dog.png")
@@ -215,8 +226,8 @@ class MainScreen(object):
 
             if ARGS.deafy_camera_index is not None:
                 # Facial landmark detector.
-                self.deafy_fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
-                self.init_cams(ARGS.deafy_camera_index)
+                self.deafy_fld = FacialLandmarkDetector(CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT, name="Deafy")
+                self.init_cams(ARGS.deafy_camera_index, DEAFY_CAMERA_DISPLAY_LOCATION)
                 self.deafy_cam_on = True
                 self.deafy_player_face = Face(CAMERA_INPUT_SIZE,FACE_DEAFY_BOTTOMLEFT)
             else:
@@ -225,8 +236,8 @@ class MainScreen(object):
                 self.deafy_player_face = None
             if ARGS.cat_camera_index is not None:
                 # Facial landmark detector.
-                self.cat_fld = FacialLandmarkDetector(BATTLE_SCREEN_WIDTH, BATTLE_SCREEN_HEIGHT, FACIAL_LANDMARK_PREDICTOR_WIDTH)
-                self.init_cams(ARGS.cat_camera_index)
+                self.cat_fld = FacialLandmarkDetector(CAMERA_INPUT_WIDTH, CAMERA_INPUT_HEIGHT, name="Cat")
+                self.init_cams(ARGS.cat_camera_index, CAT_CAMERA_DISPLAY_LOCATION)
                 self.cat_cam_on = True
                 self.cat_player_face = Face(CAMERA_INPUT_SIZE, FACE_CAT_BOTTOMLEFT)
             else:
@@ -286,7 +297,8 @@ class MainScreen(object):
         self.blink_counter = 0
         self.deafy_bullet_need_recharge = False
 
-        print "Game Reset."
+        if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+            print "Game Reset."
 
 
 
@@ -388,10 +400,10 @@ class MainScreen(object):
             return (True, direction)
 
     def _calibrate_camera(self, which_cam_idx, fld):
-        while not fld.calibrate_face(self.camera_shot_raw[which_cam_idx], self.hpe):
+        while not fld.calibrate_face(self.camera_shot_raw[which_cam_idx], self.hpe, self.display):
             self.get_camera_shot(which_cam_idx)
-            self.blit_camera_shot((0, 0), which_cam_idx)
-            pygame.display.flip()
+            # self.blit_camera_shot((0, 0), which_cam_idx)
+            # pygame.display.flip()
 
     def _get_facial_scores(self, which_cam_idx, obj, fld, face_illustration):
         self.get_camera_shot(which_cam_idx)
@@ -400,8 +412,9 @@ class MainScreen(object):
         # The speed is directly related to FACIAL_LANDMARK_PREDICTOR_WIDTH.
         face_coordinates_list, facial_features_list = fld.get_features(self.camera_shot_raw[which_cam_idx])
         if len(face_coordinates_list) > 0:
-            print("Detected %d face%s in camera %d."
-                  % (len(face_coordinates_list), "s" if len(face_coordinates_list) > 1 else "", which_cam_idx))
+            if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                print("Detected %d face%s in camera %d."
+                      % (len(face_coordinates_list), "s" if len(face_coordinates_list) > 1 else "", which_cam_idx))
             # Assume the largest face is the target.
             face_index = fld.get_largest_face_index(face_coordinates_list)
 
@@ -416,13 +429,15 @@ class MainScreen(object):
 
             # Estimate pose difference from facing forward.
             pose_diff = fld.get_pose_diff(head_pose[0])
-            print("Pose difference: %s" %(str(pose_diff)))
+            if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                print("Pose difference: %s" %(str(pose_diff)))
             # We only care about yaw (left right) and pitch (up down)
 
             # TODO: for now, don't vary the speed with respect to the pose. It's either constant speed moving or
             # stationary.
             is_moving, direction = get_direction_from_line(head_pose[2][0])
-            print("Face %d direction %s" %(which_cam_idx, str(direction)))
+            if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                print("Face %d direction %s" %(which_cam_idx, str(direction)))
             if is_moving:
                 obj.set_direction(direction)
                 obj.start_moving()
@@ -440,7 +455,8 @@ class MainScreen(object):
             elif mouth_open_score <= MOUTH_SCORE_RECHARGE_THRESHOLD:
                 obj.recharge_bullet("BOUNCE")
 
-            print("Mouth open score: %f" % (mouth_open_score))
+            if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                print("Mouth open score: %f" % (mouth_open_score))
 
             # # Use the eye aspect ratio (aka blink detection) to jump
             # blink_score = get_blink_score(facial_features_3d)
@@ -476,11 +492,14 @@ class MainScreen(object):
 
             if self.deafy.hp <= 0 or self.cat.hp <= 0:
                 if self.deafy.hp <= 0:
-                    print('Deafy ran out of hp. Cat wins!')
+                    if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
+                        print('Deafy ran out of hp. Cat wins!')
                 elif self.cat.hp <= 0:
-                    print('Cat ran out of hp. Deafy wins!')
+                    if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
+                        print('Cat ran out of hp. Deafy wins!')
                 else:
-                    print('Draw!')
+                    if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
+                        print('Draw!')
                 # I know this is weird but it seems to be able to avoid some lag and make sure no
                 # keyboard inputs are carried over to the next game
                 time.sleep(1)
@@ -572,15 +591,22 @@ class MainScreen(object):
                         self.cat.take_damage(bullet)
                     bullet.kill()
                     self.bullets.remove(bullet)
-                    print('HP Now: Deafy(%d) - Cat(%d)' % (self.deafy.hp, self.cat.hp))
+                    if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                        print('HP Now: Deafy(%d) - Cat(%d)' % (self.deafy.hp, self.cat.hp))
 
             # Only keep the not destroyed objects.
             self.bullets = [bullet for bullet in self.bullets if not bullet.destroyed]
 
 
+            # Clear screen and set every pixel to black..
+            # TODO: Otherwise things that are blit directly onto the screen (not a sprite) is not erazed correctly.
+            # Is there a better solution?
+            self.display.fill(BLACK)
+
             # clear/erase the last drawn sprites
             self.all.clear(self.display, self.background)
             self.all.update()
+
             # # draw the scene
             dirty = self.background_group.draw(self.display)
             pygame.display.update(dirty)
@@ -609,14 +635,16 @@ class MainScreen(object):
                     self.blit_camera_shot(self.camera_default_display_location[ARGS.deafy_camera_index],
                                           ARGS.cat_camera_index)
 
-
-            # dirty = self.all.draw(self.display)
-            # pygame.display.update(dirty)
-            pygame.display.flip()
             self.clock.tick(MAX_FPS)
+            # TODO: FPS should be at least 10 for good game experience, ideally 20-30.
+            # Now it's 30fps with no camera, 10fps with 1 camera and 5fps with 2 cameras.
+            self.text.blit_text_bottom_left_corner_at("FPS: %.1f" % (self.clock.get_fps()),
+                                                      self._FPS_BLIT_BOTTOM_LEFT, self.display)
             # print (self.clock.get_fps())
+            pygame.display.flip()
 
-        print("Game exiting.")
+        if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
+            print("Game exiting.")
         # Sleeps for 5 seconds before quitting
         time.sleep(5)
 

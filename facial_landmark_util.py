@@ -17,10 +17,12 @@ from operator import mul
 from PIL import Image
 from scipy.spatial import distance as dist
 
+
 import pygame
 import pygame.camera
 from pygame.locals import *
 from constants import *
+from text import Text
 
 # Constants
 # grab the indexes of the facial landmarks for the left and
@@ -78,9 +80,13 @@ def get_image_from_surface(surface):
     return image
 
 class FacialLandmarkDetector(object):
-    CALIBRATE_ROUNDS = 10
+    _CALIBRATE_ROUNDS = 10
+    _TEXT_COLOR = WHITE
+    _CALIBRATE_BG_COLOR = BLACK
+    _CALIBRATE_TEXT_TOP = (GAME_SCREEN_WIDTH / 2,  BATTLE_SCREEN_HEIGHT + (GAME_SCREEN_HEIGHT - BATTLE_SCREEN_HEIGHT) / 4)
+    _CALIBRATE_TEXT_CENTER = (GAME_SCREEN_WIDTH / 2, (BATTLE_SCREEN_HEIGHT + GAME_SCREEN_HEIGHT) / 2)
 
-    def __init__(self, screen_width, screen_height, facial_landmark_predictor_width, path="shape_predictor_68_face_landmarks.dat"):
+    def __init__(self, camera_width, camera_height, name="PLAYER", path="shape_predictor_68_face_landmarks.dat"):
         # initialize dlib's face detector (HOG-based) and then create the facial landmark predictor
         if not os.path.isfile(path):
             raise IOError("Cannot find the facial landmark data file. Please download it from "
@@ -88,13 +94,13 @@ class FacialLandmarkDetector(object):
                           "dat.bz2 and extract that directly to the root folder of this project.")
         self.detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor(path)
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-        self.facial_landmark_predictor_width = facial_landmark_predictor_width
-        self.resize_ratio = (float(self.screen_width) / self.facial_landmark_predictor_width)
+        self.camera_width = camera_width
+        self.camera_height = camera_height
+        # self.facial_landmark_predictor_width = facial_landmark_predictor_width
+        # self.resize_ratio = (float(self.camera_width) / self.facial_landmark_predictor_width)
         # Calibration parameters
         self.calibrated = False
-        self.calibrate_round_left = self.CALIBRATE_ROUNDS
+        self.calibrate_round_left = self._CALIBRATE_ROUNDS
         # All attributes starting with _cal is used internally for calibration purposes. They record the measured
         # values over the calibration rounds.
         self._cal_mouth_left_corner_to_center_dists = []
@@ -108,14 +114,18 @@ class FacialLandmarkDetector(object):
         self.norm_roll = 0
         self.norm_pitch = 0
         self.norm_yaw = 0
+        # Initialize text display for camera calibration
+        self.text = Text()
+        self.name = name
+
 
 
 
     def get_features(self, surface):
         image = get_image_from_surface(surface)
-        # The image needs to be resized to speed things up.
-        if self.screen_width != self.facial_landmark_predictor_width:
-            image = imutils.resize(image, width=self.facial_landmark_predictor_width)
+        # # The image needs to be resized to speed things up.
+        # if self.camera_width != self.facial_landmark_predictor_width:
+        #     image = imutils.resize(image, width=self.facial_landmark_predictor_width)
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # detect faces in the grayscale image
@@ -131,13 +141,13 @@ class FacialLandmarkDetector(object):
             # array
             shape = self.predictor(gray, rect)
             shape = face_utils.shape_to_np(shape)
-            shape = shape * self.resize_ratio
+            # shape = shape * self.resize_ratio
             facial_features.append(shape)
 
             # convert dlib's rectangle to a OpenCV-style bounding box
             # [i.e., (x, y, w, h)], then draw the face bounding box
             (x, y, w, h) = face_utils.rect_to_bb(rect)
-            (x, y, w, h) = (x * self.resize_ratio, y * self.resize_ratio, w * self.resize_ratio, h * self.resize_ratio)
+            # (x, y, w, h) = (x * self.resize_ratio, y * self.resize_ratio, w * self.resize_ratio, h * self.resize_ratio)
             face_coordinates.append((x, y, w, h))
         return face_coordinates, facial_features
 
@@ -177,7 +187,7 @@ class FacialLandmarkDetector(object):
 
     def clear_calibrate_results(self):
         self.calibrated = False
-        self.calibrate_round_left = self.CALIBRATE_ROUNDS
+        self.calibrate_round_left = self._CALIBRATE_ROUNDS
         # All attributes starting with _cal is used internally for calibration purposes. They record the measured
         # values over the calibration rounds.
         self._cal_mouth_left_corner_to_center_dists = []
@@ -192,18 +202,38 @@ class FacialLandmarkDetector(object):
         self.norm_pitch = 0
         self.norm_yaw = 0
 
-    def calibrate_face(self, surface, head_pose_estimator):
+
+    def calibrate_face(self, camera_shot, head_pose_estimator, display):
+        """
+        This is a wrapper around the calibrate_face_aux, which does most of the heavy-lifting. This function makes sure
+        the display is updated during calibration.
+        """
+        display.fill(self._CALIBRATE_BG_COLOR)
+        self.text.blit_text_centered_at("Facial feature calibration for %s. " %(self.name),
+                                            self._CALIBRATE_TEXT_TOP, display)
+        ret = self.calibrate_face_aux(camera_shot, head_pose_estimator, display)
+        pygame.display.flip()
+        return ret
+
+    def calibrate_face_aux(self, camera_shot, head_pose_estimator, display):
         """
         This function should be called before using other facial landmark utility functions. It measures the human face
-        features under normal condition. Ideally the pygame function should loop until the calibrate_face function
+        features under normal condition. In principle the pygame function should loop until the calibrate_face function
         returns true, then start the game.
-        :param surface: a pygame image. It should be the pygame camera.
+        :param camera_shot: a pygame image. It should be the pygame camera.
         :param head_pose_estimator: a HeadPoseEstimator object.
         :return: True if calibration finishes. False if otherwise.
         """
         # Get the facial features of the largest face
-        face_coordinates_list, facial_features_list = self.get_features(surface)
+        face_coordinates_list, facial_features_list = self.get_features(camera_shot)
+
+        # Now show the image on the display.
+        camera_shot_display = pygame.transform.scale(camera_shot, BATTLE_SCREEN_SIZE)
+        display.blit(camera_shot_display, (0,0)) # Upper left corner. Take over the whole battle screen.
+
         if len(face_coordinates_list) == 0:
+            self.text.blit_text_centered_at("Can't see any face. Try to move around a little.",
+                                            self._CALIBRATE_TEXT_CENTER, display)
             self.clear_calibrate_results()
             return False
 
@@ -214,9 +244,28 @@ class FacialLandmarkDetector(object):
 
         # Check if the head is straight. That is, check whether z axis is vertical.
         if not (is_line_vertical(axes[2])):
-            print("Still calibrating... Please make sure your head is straight.")
+            self.text.blit_text_centered_at("Still calibrating... Please make sure your head is straight.",
+                                            self._CALIBRATE_TEXT_CENTER, display)
             self.clear_calibrate_results()
             return False
+
+        # Display 2d facial features, if there is any.
+        # xyz axes.
+        axes = np.array(axes)
+        # Resized to the current battle display width and height
+        axes_x_resized = axes[:,:,0]  / (float(CAMERA_INPUT_WIDTH) / BATTLE_SCREEN_WIDTH)
+        axes_y_resized = axes[:,:,1]  / (float(CAMERA_INPUT_HEIGHT) / BATTLE_SCREEN_HEIGHT)
+        axes = np.stack((axes_x_resized, axes_y_resized), axis=2)
+
+        pygame.draw.line(display, RED, axes[0,0], axes[0,1])
+        pygame.draw.line(display, GREEN, axes[1,0], axes[1,1])
+        pygame.draw.line(display, BLUE, axes[2,0], axes[2,1])
+        # Draw facial features...
+        for feature in facial_features_list[face_index]:
+            # circle(Surface, color, pos, radius, width=0)
+            feature = (int(feature[0] / (float(CAMERA_INPUT_WIDTH) / BATTLE_SCREEN_WIDTH)),
+                       int(feature[1] / (float(CAMERA_INPUT_HEIGHT) / BATTLE_SCREEN_HEIGHT)))
+            pygame.draw.circle(display, WHITE, feature, 2)
 
         # Now calculate the rotational invariant facial features
 
@@ -239,70 +288,21 @@ class FacialLandmarkDetector(object):
             self.norm_roll = np.average(self._cal_rolls)
             self.norm_pitch = np.average(self._cal_pitches)
             self.norm_yaw = np.average(self._cal_yaws)
-
-            print("Calibration finishes! mouth_left_corner: %f, mouth_right_corner: %f, norm_roll: %f, norm_pitch: %f"
-                  ", norm_yaw: %f." %(self.norm_mouth_left_corner_to_center_dist,
-                                      self.norm_mouth_right_corner_to_center_dist,
-                                      self.norm_roll, self.norm_pitch, self.norm_yaw))
+            if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                print("Calibration finishes! mouth_left_corner: %f, mouth_right_corner: %f, norm_roll: %f, norm_pitch: %f"
+                      ", norm_yaw: %f." %(self.norm_mouth_left_corner_to_center_dist,
+                                          self.norm_mouth_right_corner_to_center_dist,
+                                          self.norm_roll, self.norm_pitch, self.norm_yaw))
             return True
         else:
-            print("Keep still! Need %d more images to finish calibration." %(self.calibrate_round_left))
+            self.text.blit_text_centered_at("Keep still! Need %d more images to finish calibration."
+                                            %(self.calibrate_round_left),
+                                            self._CALIBRATE_TEXT_CENTER, display)
             return False
 
 class HeadPoseEstimator():
     # Adapted from https://github.com/mpatacchiola/deepgaze/blob/master/examples/ex_pnp_head_pose_estimation_webcam.py
     # Other useful resources: http://www.learnopencv.com/head-pose-estimation-using-opencv-and-dlib/#code
-
-
-    # # Antropometric constant values of the human head.
-    # # Found on wikipedia and on:
-    # # "Head-and-Face Anthropometric Survey of U.S. Respirator Users"
-    # #
-    # # X-Y-Z with X pointing forward and Y on the left.
-    # # The X-Y-Z coordinates used are like the standard
-    # # coordinates of ROS (robotic operative system)
-    # P3D_RIGHT_SIDE = np.float32([-100.0, -77.5, -5.0])  # 0
-    # P3D_GONION_RIGHT = np.float32([-110.0, -77.5, -85.0])  # 4
-    # P3D_MENTON = np.float32([0.0, 0.0, -122.7])  # 8
-    # P3D_GONION_LEFT = np.float32([-110.0, 77.5, -85.0])  # 12
-    # P3D_LEFT_SIDE = np.float32([-100.0, 77.5, -5.0])  # 16
-    # P3D_FRONTAL_BREADTH_RIGHT = np.float32([-20.0, -56.1, 10.0])  # 17
-    # P3D_FRONTAL_BREADTH_LEFT = np.float32([-20.0, 56.1, 10.0])  # 26
-    # P3D_SELLION = np.float32([0.0, 0.0, 0.0])  # 27
-    # P3D_NOSE = np.float32([21.1, 0.0, -48.0])  # 30
-    # P3D_SUB_NOSE = np.float32([5.0, 0.0, -52.0])  # 33
-    # P3D_RIGHT_EYE = np.float32([-20.0, -65.5, -5.0])  # 36
-    # P3D_RIGHT_TEAR = np.float32([-10.0, -40.5, -5.0])  # 39
-    # P3D_LEFT_TEAR = np.float32([-10.0, 40.5, -5.0])  # 42
-    # P3D_LEFT_EYE = np.float32([-20.0, 65.5, -5.0])  # 45
-    # # P3D_LIP_RIGHT = np.float32([-20.0, 65.5,-5.0]) #48
-    # # P3D_LIP_LEFT = np.float32([-20.0, 65.5,-5.0]) #54
-    # P3D_STOMION = np.float32([10.0, 0.0, -75.0])  # 62
-    #
-    # # The points to track
-    # # These points are the ones used by PnP
-    # # to estimate the 3D pose of the face
-    # TRACKED_POINTS = [0, 4, 8, 12, 16, 17, 26, 27, 30, 33, 36, 39, 42, 45, 62]
-    #
-    # # This matrix contains the 3D points of the
-    # # 11 landmarks we want to find. It has been
-    # # obtained from antrophometric measurement
-    # # on the human head.
-    # landmarks_3D = np.float32([P3D_RIGHT_SIDE,
-    #                            P3D_GONION_RIGHT,
-    #                            P3D_MENTON,
-    #                            P3D_GONION_LEFT,
-    #                            P3D_LEFT_SIDE,
-    #                            P3D_FRONTAL_BREADTH_RIGHT,
-    #                            P3D_FRONTAL_BREADTH_LEFT,
-    #                            P3D_SELLION,
-    #                            P3D_NOSE,
-    #                            P3D_SUB_NOSE,
-    #                            P3D_RIGHT_EYE,
-    #                            P3D_RIGHT_TEAR,
-    #                            P3D_LEFT_TEAR,
-    #                            P3D_LEFT_EYE,
-    #                            P3D_STOMION])
 
     # From https://github.com/chili-epfl/attention-tracker/blob/master/src/head_pose_estimation.hpp
     P3D_SELLION = [0., 0., 0.]  # 27
@@ -351,8 +351,7 @@ class HeadPoseEstimator():
         :param facial_features: format: numpy array of shape (68, 2)
         :return: Rotation vector, translation vector, and the three axis (lines) projected in the image plane.
         """
-        landmarks_2D = np.array(facial_features)[
-            self.TRACKED_POINTS]  # [facial_features[i] for i in self.TRACKED_POINTS]
+        landmarks_2D = np.array(facial_features)[self.TRACKED_POINTS].astype(np.float32)
         # Applying the PnP solver to find the 3D pose
         # of the head from the 2D position of the
         # landmarks.
@@ -386,7 +385,9 @@ class HeadPoseEstimator():
 
             return rvec, tvec, lines
         else:
-            print("Warning: failed to solve pnp in head pose estimation. Returning None")
+
+            if DEBUG_LEVEL >= DEBUG_PRINT_UNEXPECTED_ERROR:
+                print("Warning: failed to solve pnp in head pose estimation. Returning None")
             return None
 
     def two_d_to_three_d(self, points, rvec, tvec, const_x=1, precalculated_s = None):
@@ -444,7 +445,8 @@ class HeadPoseEstimator():
                     s = (self.P3D_LEFT_SIDE[1] - self.P3D_RIGHT_SIDE[1]) / \
                         dist.euclidean(r_inv_m_inv_left_ref, r_inv_m_inv_right_ref)
                     if i == 0:
-                        print("Scale factor: %f" %s)
+                        if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                            print("Scale factor: %f" %s)
             else:
                 s = precalculated_s
             three_d_point = r_inv_m_inv_uv1 * s - r_inv_t
@@ -503,7 +505,8 @@ def get_mouth_open_score(facial_features_3d):
     h = float(abs(facial_features_3d[61, 2] - facial_features_3d[67, 2]) + abs(facial_features_3d[63, 2] - facial_features_3d[65, 2])) / 2.0
     # print("W: %.1f H: %.1f" %(w,h))
     if w == 0:
-        print("Wierd. Width of the mouth should not normally be 0.")
+        if DEBUG_LEVEL >= DEBUG_PRINT_UNEXPECTED_ERROR:
+            print("Wierd. Width of the mouth should not normally be 0.")
         return 0
     else:
         return h / w
