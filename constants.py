@@ -64,6 +64,7 @@ WSAD_KEY_CONSTANTS = [K_w, K_s, K_a, K_d]
 ARROW_KEY_CONSTANTS = [K_UP, K_DOWN, K_LEFT, K_RIGHT]
 
 # UI object specifics
+# FPS should be at least 10 for good game experience, ideally 20-30.
 MAX_FPS = 30
 # The y goes from top to bottom starting at 0.
 GROUND_LEVEL = BATTLE_SCREEN_HEIGHT * 11 / 15

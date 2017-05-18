@@ -41,21 +41,24 @@ class Face(pygame.sprite.Sprite):
         self.move_threshold_ellipse_loc.center = self._SELLION_CENTER_POS
 
     def update(self):
-        if self.centered_facial_features_2d is None or self.centered_projection_lines is None \
-                or self.face_coordinates is None:
-            raise AttributeError("You must first feed in the facial features using refresh_features().")
         # First clear image
         self.image.fill(self._BG_COLOR)
 
-        pygame.draw.ellipse(self.image, RED, self.move_threshold_ellipse_loc, 1)  # TODO: change color when moving.
+        if self.centered_facial_features_2d is None or self.centered_projection_lines is None \
+                or self.face_coordinates is None:
+            # Async process has not yet filled those parameters,
+            pass
+            # raise AttributeError("You must first feed in the facial features using refresh_features().")
+        else:
+            pygame.draw.ellipse(self.image, RED, self.move_threshold_ellipse_loc, 1)  # TODO: change color when moving.
 
-        # Line that controls moving
-        pygame.draw.line(self.image, WHITE, self.centered_projection_lines[0,0],
-                         self.centered_projection_lines[0,1])
-        # Draw facial features...
-        for feature in self.centered_facial_features_2d:
-            # circle(Surface, color, pos, radius, width=0)
-            pygame.draw.circle(self.image, (0, 0, 255), feature, 2)
+            # Line that controls moving
+            pygame.draw.line(self.image, WHITE, self.centered_projection_lines[0,0],
+                             self.centered_projection_lines[0,1])
+            # Draw facial features...
+            for feature in self.centered_facial_features_2d:
+                # circle(Surface, color, pos, radius, width=0)
+                pygame.draw.circle(self.image, (0, 0, 255), feature, 2)
 
     def refresh_features(self, face_coordinates, facial_features_2d, projection_lines):
         self.face_coordinates = face_coordinates

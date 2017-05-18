@@ -74,9 +74,9 @@ def is_line_vertical(line, allowed_error=np.pi/18):
         return False
 
 def get_image_from_surface(surface):
-    pil_string_image = pygame.image.tostring(surface, "RGBA", False)
+    pil_string_image = pygame.image.tostring(surface, "RGB", False)
     surface_width, surface_height = surface.get_rect().w, surface.get_rect().h
-    image = np.asarray(Image.frombytes("RGBA", (surface_width, surface_height), pil_string_image))
+    image = np.asarray(Image.frombytes("RGB", (surface_width, surface_height), pil_string_image))
     return image
 
 class FacialLandmarkDetector(object):
