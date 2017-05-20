@@ -27,6 +27,11 @@ class Deafy(pygame.sprite.Sprite):
         'BOUNCE': 2,
         'SPREAD': 3,
     }
+    _BULLET_SOUND_INDEX = {
+        'NORMAL': 0,
+        'BOUNCE': 1,
+        'SPREAD': 2,
+    }
 
     def __init__(self, pos=BATTLE_SCREEN_RECT.bottomright):
         # Notice that bottomright instead of bottomleft is used for deafy, because deafy is facing right.
@@ -46,6 +51,7 @@ class Deafy(pygame.sprite.Sprite):
         self.hp_bar = self.create_hp_bar()
         self.bullet_recharged = {bullet_type: True for bullet_type in self._BULLET_COLORS.keys()}
         self.bullet_last_fire = {bullet_type: None for bullet_type in self._BULLET_COLORS.keys()}
+        self.blink_counter = 0  # The number of frames the eyes are closed.
 
     # def move(self, pos):
     #     self.rect = self.image.get_rect(bottomright=pos)
@@ -140,6 +146,14 @@ class Deafy(pygame.sprite.Sprite):
             bullet_location = (bullet_location[0] + BULLET_SIZE, bullet_location[1])
 
         bullet_color = self._BULLET_COLORS[bullet_type]
+
+        # Play sound accordingly
+        sound_index = self._BULLET_SOUND_INDEX[bullet_type]
+        if len(self.sounds) <= sound_index:
+            raise IndexError("Can't play sound index %d. Only %d sounds are loaded." %(sound_index, len(self.sounds)))
+        else:
+            self.sounds[sound_index].play()
+
         if bullet_type == "NORMAL":
             return NormalBullet(dx=bullet_speed, pos=bullet_location, ap=self.ap, color=bullet_color,
                                 bullet_size=BULLET_SIZE)

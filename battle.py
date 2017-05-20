@@ -15,8 +15,8 @@ import pygame.camera
 import pygame.key
 from pygame.locals import *
 
-from facial_landmark_util import FacialLandmarkDetector, HeadPoseEstimator, get_mouth_open_score, get_blink_score, \
-    get_direction_from_line
+from facial_landmark_util import FacialLandmarkDetector, HeadPoseEstimator, get_mouth_open_score, \
+    get_any_eye_blink_rounds, get_direction_from_line
 from sprite_sheet import SpriteSheet
 
 from constants import *
@@ -203,7 +203,28 @@ class MainScreen(object):
                               cat_sheet.image_at((1+54*3, 158, 54, 42), colorkey=-1), ]
         # Load sounds
         Deafy.sounds = [load_sound("normal.ogg"), load_sound("jump.ogg"), load_sound("victory.ogg")]
-        CatOpponent.sounds=[dummysound(),dummysound(),dummysound()]  # TODO: add sound later.
+        CatOpponent.sounds=[load_sound("cat_meow.wav"), load_sound("Cat-meow-nervous.wav"),
+                            load_sound("Angry-cat-sound.wav")]
+        self.background_sounds = [load_sound("2A03_fluidvolt-Pallid_Underbrush.wav"),
+                                    load_sound("2A03_Kevvviiinnn-Superfusion.wav"),
+                                    load_sound("Class_gyms-Pastorale.wav"),
+                                    load_sound("Class_Kulor-SpaceDolphinsSpaceCave.wav"),
+                                    load_sound("Class_Zephemeros-Asymmetrical.wav"),
+                                    load_sound("FDS_Kevvviiinnn_-_The_Devourer's_Wrath.wav"),
+                                    load_sound("FDS_rushjet1_-_fdx.wav"),
+                                    load_sound("FDS_SriK_-_F%!&_Dis_S#!%.wav"),
+                                    load_sound("miku-joker.wav"),
+                                    load_sound("MMC5_moviemovies1-Rubicon.wav"),
+                                    load_sound("N163_Jayster_-_TMNT_Tournament_Fighters_Scrapyard_Swing.wav"),
+                                    load_sound("VRC6_Anon-3DGalax.wav"),
+                                    load_sound("VRC6_ArchJ-MegaManRemixesArchj - Track 01 Mega Man Elecman.wav"),
+                                    load_sound("VRC6_Ares64-smurfity smurf - Track 01 (Smurfs (GB) Title).wav"),
+                                    load_sound("VRC6_Ares64-smurfity smurf - Track 02 (Smurfs (GB) Volcano).wav"),
+                                    load_sound("VRC6_Ares64-smurfity smurf - Track 03 (Smurfs (GB) River Smurf).wav"),
+                                    load_sound("VRC6_Raijin-Thunderforce III - Haides (Truth) Devil Crash - Main Theme - Track 01 (Thunderforce III Truth).wav"),
+                                    load_sound("VRC6_Raijin-Thunderforce III - Haides (Truth) Devil Crash - Main Theme - Track 02 (Devil Crash Main Theme).wav")]
+        self.background_channel = pygame.mixer.Channel(BGM_CHANNEL_ID)
+        self.background_channel.set_endevent(END_BGM_EVENT)
 
         # Initialize Game Groups
         self.all = pygame.sprite.RenderUpdates()
@@ -292,6 +313,10 @@ class MainScreen(object):
         self.blink_counter = 0
         self.deafy_bullet_need_recharge = False
 
+        # Reset sound and play a new random background music.
+        self.background_channel.stop()
+        self._queue_random_bgm()
+
 
     def reset_battle(self):
         self.deafy.kill()
@@ -311,10 +336,41 @@ class MainScreen(object):
         self.blink_counter = 0
         self.deafy_bullet_need_recharge = False
 
+        # Reset sound and play a new random background music.
+        self.background_channel.stop()
+        self._queue_random_bgm()
+
+        # Clear camera multithread queues.
+        if ARGS.camera:
+            if ARGS.deafy_camera_index is not None:
+                # Lock the queue while clearing its contents.
+                while not self.deafy_queue.empty():
+                    self.deafy_queue.get()
+                while not self.deafy_features_q.empty():
+                    self.deafy_features_q.get()
+            if ARGS.cat_camera_index is not None:
+                while not self.cat_queue.empty():
+                    self.cat_queue.get()
+                while not self.cat_features_q.empty():
+                    self.cat_features_q.get()
+
         if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
             print "Game Reset."
 
+    def quit(self):
+        # Set stop flag to stop.
+        with self.stop_flag.get_lock():
+            self.stop_flag.value = 1
+        if ARGS.camera:
+            if self.deafy_cam_on:
+                self.deafy_process.join()
+            if self.cat_cam_on:
+                self.cat_process.join()
 
+        if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
+            print("Game exiting.")
+        # Sleeps for 5 seconds before quitting
+        time.sleep(5)
 
     def init_cams(self, which_cam_idx, display_location=None):
 
@@ -491,7 +547,7 @@ class MainScreen(object):
 
                 # TODO: implement bullet CD aka recharge in deafy and cat. Replace deafy_bullet_need_recharge.
                 if mouth_open_score >= MOUTH_SCORE_SHOOT_THRESHOLD:
-                    bullet = obj.emit_bullets("BOUNCE")
+                    bullet = obj.emit_bullets("BOUNCE", recharge=False)
                     if bullet:
                         self.bullets.append(bullet)
                 elif mouth_open_score <= MOUTH_SCORE_RECHARGE_THRESHOLD:
@@ -501,6 +557,18 @@ class MainScreen(object):
                     print("Mouth open score: %f" % (mouth_open_score))
 
                 # # Use the eye aspect ratio (aka blink detection) to jump
+                prev_blink_counter = obj.blink_counter
+                obj.blink_counter = get_any_eye_blink_rounds(facial_features_3d, obj.blink_counter)
+
+                if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                    print("Number of frames that one of the eyes is closed: %d" % (obj.blink_counter))
+                # Fire the spread bullet when the eye has been closed for a while and now it is open.
+                if prev_blink_counter >= EYE_AR_CONSEC_FRAMES and obj.blink_counter == 0:
+                    # No recharge for now...
+                    bullets = obj.emit_bullets("SPREAD", recharge=True)
+                    if bullets:
+                        self.bullets = self.bullets + bullets
+
                 # blink_score = get_blink_score(facial_features_3d)
                 # # check to see if the eye aspect ratio is below the blink
                 # # threshold, and if so, increment the blink frame counter
@@ -515,6 +583,9 @@ class MainScreen(object):
                 #     if self.blink_counter >= EYE_AR_CONSEC_FRAMES:
                 #         self.deafy.jump(min(self.blink_counter * BLINK_JUMP_SPEED_FACTOR, MAX_JUMP_SPEED))
                 #         self.blink_counter = 0
+
+    def _queue_random_bgm(self):
+        self.background_channel.queue(self.background_sounds[random.randint(0, len(self.background_sounds) - 1)])
 
     def main(self,):
         # Before anything else, calibrate camera.
@@ -571,6 +642,10 @@ class MainScreen(object):
             for e in events:
                 if e.type == QUIT or (e.type == KEYDOWN and e.key == K_ESCAPE):
                     going = False
+                if e.type == END_BGM_EVENT and e.code == 0:
+                    if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                        print("BGM ended. Playing a new one")
+                    self._queue_random_bgm()
 
 
             # Get all key pressed.
@@ -697,20 +772,6 @@ class MainScreen(object):
                                                       self._FPS_BLIT_BOTTOM_LEFT, self.display)
             pygame.display.flip()
 
-        # Set stop flag to stop.
-        with self.stop_flag.get_lock():
-            self.stop_flag.value = 1
-        if ARGS.camera:
-            if self.deafy_cam_on:
-                self.deafy_process.join()
-            if self.cat_cam_on:
-                self.cat_process.join()
-
-        if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
-            print("Game exiting.")
-        # Sleeps for 5 seconds before quitting
-        time.sleep(5)
-
 
 
 def main():
@@ -721,7 +782,12 @@ def main():
     pygame.init()
     pygame.camera.init()
 
-    MainScreen().main()
+    main_screen = MainScreen()
+    try:
+        main_screen.main()
+    finally:
+        # Otherwise threads won't quit even after the parent thread is already gone.
+        main_screen.quit()
     pygame.quit()
 
 if __name__ == '__main__':
