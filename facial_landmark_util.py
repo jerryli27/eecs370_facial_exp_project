@@ -590,12 +590,34 @@ def get_right_blink_score(facial_features_3d):
     return right_e_a_r
 
 
-def get_blink_score(facial_features_3d):
+def get_any_eye_blink_ear(facial_features_3d):
     left_e_a_r = get_left_blink_score(facial_features_3d)
     right_e_a_r = get_right_blink_score(facial_features_3d)
-    # average the eye aspect ratio together for both eyes
-    ear = (left_e_a_r + right_e_a_r) / 2.0
+    # Take the smallest one.
+    ear = min(left_e_a_r, right_e_a_r)
     return ear
+
+
+def get_any_eye_blink_rounds(facial_features_3d, num_rounds, threshold=EYE_AR_THRESH):
+    """
+
+    :param facial_features_3d:
+    :param num_rounds: Number of rounds that any of the eyes have ear level lower than the threshold.
+    :param threshold: The eyes are treated as closed if the 'ear' level is below this threshold.
+    :return: new num_rounds = 0 if eyes are open, += 1 if eyes are closed.
+    """
+    ear = get_any_eye_blink_ear(facial_features_3d)
+    if ear <= threshold:
+        return num_rounds + 1
+    else:
+        return 0
+
+# def get_blink_score(facial_features_3d):
+#     left_e_a_r = get_left_blink_score(facial_features_3d)
+#     right_e_a_r = get_right_blink_score(facial_features_3d)
+#     # average the eye aspect ratio together for both eyes
+#     ear = (left_e_a_r + right_e_a_r) / 2.0
+#     return ear
 
 # def get_direction_from_pose(pose_diff):
 #     """

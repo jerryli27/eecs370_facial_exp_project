@@ -1,4 +1,5 @@
 from pygame.locals import *
+import pygame
 
 # Debug constant. Used to print debugging messages if needed. Can be set by using the debug_level flag. See that flag
 # for detailed description.
@@ -105,3 +106,8 @@ POSE_MOVE_LOWER_THRESHOLD = 10
 POSE_MOVE_UPPER_THRESHOLD = 100
 
 assert BATTLE_SCREEN_HEIGHT % BACKGROUND_OBJECT_HEIGHT == 0 and BATTLE_SCREEN_WIDTH % BACKGROUND_OBJECT_WIDTH == 0
+
+# Music
+# You can have several User Events, so make a separate Id for each one
+BGM_CHANNEL_ID = 0
+END_BGM_EVENT = pygame.USEREVENT + 0    # ID for music Event
