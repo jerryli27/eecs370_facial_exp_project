@@ -2,12 +2,28 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9072e96f-2bae-40f0-ba64-67d787f9d772" name="Default" comment="">
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/2A03_Kevvviiinnn-Superfusion.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/2A03_fluidvolt-Pallid_Underbrush.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/Angry-cat-sound.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/Cat-meow-nervous.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/Class_Kulor-SpaceDolphinsSpaceCave.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/Class_Zephemeros-Asymmetrical.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/Class_gyms-Pastorale.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/FDS_Kevvviiinnn_-_The_Devourer's_Wrath.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/FDS_SriK_-_F%!&amp;_Dis_S#!%.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/FDS_rushjet1_-_fdx.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/MMC5_moviemovies1-Rubicon.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/N163_Jayster_-_TMNT_Tournament_Fighters_Scrapyard_Swing.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/VRC6_Anon-3DGalax.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/VRC6_ArchJ-MegaManRemixesArchj - Track 01 Mega Man Elecman.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/VRC6_Ares64-smurfity smurf - Track 01 (Smurfs (GB) Title).wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/VRC6_Ares64-smurfity smurf - Track 02 (Smurfs (GB) Volcano).wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/VRC6_Ares64-smurfity smurf - Track 03 (Smurfs (GB) River Smurf).wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/VRC6_Raijin-Thunderforce III - Haides (Truth) Devil Crash - Main Theme - Track 01 (Thunderforce III Truth).wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/VRC6_Raijin-Thunderforce III - Haides (Truth) Devil Crash - Main Theme - Track 02 (Devil Crash Main Theme).wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/cat_meow.wav" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data/miku-joker.wav" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/battle.py" afterPath="$PROJECT_DIR$/battle.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/constants.py" afterPath="$PROJECT_DIR$/constants.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/data/data_sources" afterPath="$PROJECT_DIR$/data/data_sources" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/deafy_cat.py" afterPath="$PROJECT_DIR$/deafy_cat.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/facial_landmark_util.py" afterPath="$PROJECT_DIR$/facial_landmark_util.py" />
     </list>
     <ignored path=".idea/" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -29,8 +45,8 @@
       <file leaf-file-name="battle.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/battle.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="513">
-              <caret line="572" column="33" lean-forward="false" selection-start-line="572" selection-start-column="33" selection-end-line="572" selection-end-column="33" />
+            <state relative-caret-position="558">
+              <caret line="575" column="34" lean-forward="true" selection-start-line="575" selection-start-column="34" selection-end-line="575" selection-end-column="34" />
               <folding>
                 <element signature="e#68#83#0" expanded="true" />
               </folding>
@@ -628,14 +644,21 @@
       <option name="project" value="LOCAL" />
       <updated>1495134787603</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Added sound effects, bgm, and eye closed detection.">
+      <created>1495259167078</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1495259167078</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="ToolWindowManager">
     <frame x="1312" y="52" width="1248" height="1028" extended-state="4" />
-    <editor active="true" />
+    <editor active="false" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.17469388" sideWeight="0.49536425" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.17469388" sideWeight="0.49536425" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.1899371" sideWeight="0.5031746" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32776618" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
@@ -664,7 +687,8 @@
     <MESSAGE value="Added an illustration for facial features. It can be used for tutorial or for real time feedback" />
     <MESSAGE value="Added camera calibration ui and 2 camera support. Next goal: improve fps." />
     <MESSAGE value="Added asynchronous camera &amp; facial feature computation support. Now the fps is unaffected by the camera and is kept at MAX_FPS = 30." />
-    <option name="LAST_COMMIT_MESSAGE" value="Added asynchronous camera &amp; facial feature computation support. Now the fps is unaffected by the camera and is kept at MAX_FPS = 30." />
+    <MESSAGE value="Added sound effects, bgm, and eye closed detection." />
+    <option name="LAST_COMMIT_MESSAGE" value="Added sound effects, bgm, and eye closed detection." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -1042,8 +1066,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/battle.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="513">
-          <caret line="572" column="33" lean-forward="false" selection-start-line="572" selection-start-column="33" selection-end-line="572" selection-end-column="33" />
+        <state relative-caret-position="558">
+          <caret line="575" column="34" lean-forward="true" selection-start-line="575" selection-start-column="34" selection-end-line="575" selection-end-column="34" />
           <folding>
             <element signature="e#68#83#0" expanded="true" />
           </folding>
