@@ -20,7 +20,7 @@ from facial_landmark_util import FacialLandmarkDetector, HeadPoseEstimator, get_
 from sprite_sheet import SpriteSheet
 
 from constants import *
-import dialog
+from dialog import *
 from bullet import *
 from obstacle import *
 from deafy_cat import *
@@ -219,10 +219,10 @@ class MainScreen(object):
         Sky.containers = self.all, self.background_group
         GroundObstacle.containers = self.all, self.obstacle_group
         CatOpponent.containers = self.all, self.front_group, self.player_group
-        dialog.Dialog.containers = self.all
         Bullet.containers = self.all, self.front_group
         HPBar.containers = self.all, self.background_group
         Face.containers = self.all, self.background_group
+        Dialog.containers = self.all, self.background_group
 
 
         # Initialize camera
@@ -279,14 +279,15 @@ class MainScreen(object):
         self.ground_obstacle_sprites = []
         self.cat_obstacles = []
         self.bullets = []
+        self.dialog = Dialog(DIALOG_FRAME_COUNT)
 
         self.dx = INITIAL_DX
         self.visible_xrange = [0, BATTLE_SCREEN_WIDTH]
 
         # to track of which dialog frame shold be rendered
         self.dialog_frame = 0
-        # To trach whether dialog is displayed now. If so, disable user control.
-        self.is_dialog_active = False  # Disabled for demo purpose. Maybe add back later.
+        # To trach whether dialog is displayed now. If so, disable user control
+        self.is_dialog_active = True # Disabled for demo purpose. Maybe add back later.
 
         # Facial feature detection things.
         self.blink_counter = 0
@@ -305,7 +306,7 @@ class MainScreen(object):
         # to track of which dialog frame shold be rendered
         self.dialog_frame = 0
         # To trach whether dialog is displayed now. If so, disable user control.
-        self.is_dialog_active = False  # Disabled for demo purpose. Maybe add back later.
+        self.is_dialog_active = False # Disabled for demo purpose. Maybe add back later.
 
         # Facial feature detection things.
         self.blink_counter = 0
@@ -596,8 +597,10 @@ class MainScreen(object):
             if keys[K_SPACE]:
                 if self.dialog_frame < DIALOG_FRAME_COUNT:
                     self.dialog_frame += 1
+                    self.dialog.dialog_index = self.dialog_frame
                     if self.dialog_frame >= DIALOG_FRAME_COUNT:
                         self.is_dialog_active = False
+                        self.dialog.is_active = self.is_dialog_active
             if keys[K_z]:
                 # emit normal bullet
                 bullet = self.deafy.emit_bullets("NORMAL", recharge=True)   # this is to make keyboard input easier (no recharge)
@@ -674,13 +677,13 @@ class MainScreen(object):
             self.front_group.draw(self.display)
 
             # display dialog
-            if self.is_dialog_active:
+            #if self.is_dialog_active:
                 # TODO: minor detail but it might be better to keep one single dialog object instead of creating a
                 # new object every time. So like self.dialog.update_frame(self.dialog_frame) or something.
-                self.dialog = dialog.Dialog(self.dialog_frame)
+                #self.dialog.dialog_index = self.dialog_frame
                 # Now the display blit is handled manually. Add it to a group and use methods like above to make sure
                 # it is drawn after everything else. The blinking is likely caused by this bug.
-                self.display.blit(self.dialog.image, (BATTLE_SCREEN_WIDTH - 320, BATTLE_SCREEN_HEIGHT - 120))
+                #self.display.blit(self.dialog.image, (BATTLE_SCREEN_WIDTH - 320, BATTLE_SCREEN_HEIGHT - 120))
 
             # enable camera only after all dialog frames are shown
             if ARGS.camera and not self.is_dialog_active:
