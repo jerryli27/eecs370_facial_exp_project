@@ -318,6 +318,14 @@ class MainScreen(object):
 
 
     def reset_battle(self):
+        # I know this is weird but it seems to be able to avoid some lag and make sure no
+        # keyboard inputs are carried over to the next game
+        time.sleep(1)
+        events = pygame.event.get()
+        time.sleep(1)
+        events = pygame.event.get()
+        time.sleep(1)
+        events = pygame.event.get()
         self.deafy.kill()
         self.cat.kill()
         self.deafy = Deafy(pos=DEAFY_SCREEN_POS)
@@ -658,15 +666,6 @@ class MainScreen(object):
                         self._add_photo_to_list(self.cat_player_photos, self.cat.photo)
                     else:
                         self._add_photo_to_list(self.cat_player_photos, self.default_face_photo)
-
-                # I know this is weird but it seems to be able to avoid some lag and make sure no
-                # keyboard inputs are carried over to the next game
-                time.sleep(1)
-                events = pygame.event.get()
-                time.sleep(1)
-                events = pygame.event.get()
-                time.sleep(1)
-                events = pygame.event.get()
                 self.reset_battle()
 
             events = pygame.event.get()
@@ -706,6 +705,7 @@ class MainScreen(object):
                     if self.dialog_frame >= DIALOG_FRAME_COUNT:
                         self.is_dialog_active = False
                         self.dialog.is_active = self.is_dialog_active
+                        self.reset_battle()
             if keys[K_z]:
                 # emit normal bullet
                 bullet = self.deafy.emit_bullets("NORMAL", recharge=True)   # this is to make keyboard input easier (no recharge)
