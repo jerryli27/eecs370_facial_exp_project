@@ -656,17 +656,19 @@ class MainScreen(object):
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
                         print('Deafy ran out of hp. Cat wins!')
 
-                if self.deafy.hp <= 0:
-                    # Now save the automatically taken photos of the players
-                    if ARGS.camera and self.deafy_cam_on and self.deafy.photo is not None:
-                        self._add_photo_to_list(self.deafy_player_photos, self.deafy.photo)
-                    else:
-                        self._add_photo_to_list(self.deafy_player_photos, self.default_face_photo)
-                if self.cat.hp <= 0:
-                    if ARGS.camera and self.cat_cam_on and self.cat.photo is not None:
-                        self._add_photo_to_list(self.cat_player_photos, self.cat.photo)
-                    else:
-                        self._add_photo_to_list(self.cat_player_photos, self.default_face_photo)
+                if not self.is_dialog_active:
+                    if self.deafy.hp <= 0:
+                        # Now save the automatically taken photos of the players
+                        if ARGS.camera and self.deafy_cam_on and self.deafy.photo is not None:
+                            self._add_photo_to_list(self.deafy_player_photos, self.deafy.photo)
+                        else:
+                            self._add_photo_to_list(self.deafy_player_photos, self.default_face_photo)
+                    if self.cat.hp <= 0:
+                        if ARGS.camera and self.cat_cam_on and self.cat.photo is not None:
+                            self._add_photo_to_list(self.cat_player_photos, self.cat.photo)
+                        else:
+                            self._add_photo_to_list(self.cat_player_photos, self.default_face_photo)
+
                 self.reset_battle()
 
             events = pygame.event.get()
