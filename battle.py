@@ -367,7 +367,7 @@ class MainScreen(object):
         if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
             print("Game exiting.")
         # Sleeps for 5 seconds before quitting
-        time.sleep(5)
+        time.sleep(2)
 
     def init_cams(self, which_cam_idx, display_location=None):
 
@@ -752,14 +752,15 @@ class MainScreen(object):
                 #     item.set_failed(True)
                 for item in items_hit:
                     # Otherwise the side that didn't get hit wins.
-                    if item == self.deafy:
-                        self.deafy.take_damage(bullet)
-                    else:
-                        self.cat.take_damage(bullet)
-                    bullet.kill()
-                    self.bullets.remove(bullet)
-                    if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
-                        print('HP Now: Deafy(%d) - Cat(%d)' % (self.deafy.hp, self.cat.hp))
+                    if bullet.owner != item:
+                        if item == self.deafy:
+                            self.deafy.take_damage(bullet)
+                        else:
+                            self.cat.take_damage(bullet)
+                        bullet.kill()
+                        self.bullets.remove(bullet)
+                        if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                            print('HP Now: Deafy(%d) - Cat(%d)' % (self.deafy.hp, self.cat.hp))
 
             # Only keep the not destroyed objects.
             self.bullets = [bullet for bullet in self.bullets if not bullet.destroyed]

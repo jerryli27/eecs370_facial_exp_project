@@ -8,7 +8,7 @@ class HPBar(pygame.sprite.Sprite):
 	_EMPTY_COLOR = DARK_RED
 	_TEXT_COLOR = WHITE
 	_BG_COLOR = BLACK
-	_BUFFER_SIZE = 30
+	_BUFFER_SIZE = 10
 
 	def __init__(self, hp_max=PLAYER_HP, pos=GAME_SCREEN_RECT.bottomleft, name='PLAYER'):
 		pygame.sprite.Sprite.__init__(self, self.containers)

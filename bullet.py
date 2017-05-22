@@ -6,7 +6,7 @@ class Bullet(BackgroundObjects):
     """ This class represents the bullet . """
 
     def __init__(self, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft, ap=PLAYER_AP,
-                 destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
+                 destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE, owner=None):
         # Call the parent class (Sprite) constructor
         pygame.sprite.Sprite.__init__(self, self.containers)
         self.image = pygame.Surface([bullet_size, bullet_size])
@@ -15,6 +15,7 @@ class Bullet(BackgroundObjects):
         self.dx = dx
         self.dy = dy
         self.ap = ap
+        self.owner = owner
         self.destroy_when_oos=destroy_when_oos
         self.destroyed = False
 
@@ -47,13 +48,13 @@ class SpreadBullets(Bullet):
     """ Bullets emits more bullets along the trajectory """
 
     def __init__(self, bullet_orientation, dx=INITIAL_DX, dy=INITIAL_DY, pos=BATTLE_SCREEN_RECT.bottomleft,
-                 ap=PLAYER_AP, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE):
+                 ap=PLAYER_AP, destroy_when_oos=True, color=BLACK, bullet_size=BULLET_SIZE, owner=None):
         # Call the parent class (Sprite) constructor
         #pygame.sprite.Sprite.__init__(self, self.containers)
         self.bullet_orientation = bullet_orientation
         self.bullet_color = color
         self.bullets = []
-        self.bullets.append(NormalBullet(dx, dy, pos=pos, ap=ap, color=color, bullet_size=bullet_size))
+        self.bullets.append(NormalBullet(dx, dy, pos=pos, ap=ap, color=color, bullet_size=bullet_size, owner=owner))
 
         self.dx = dx
         self.dy = 1
@@ -61,7 +62,7 @@ class SpreadBullets(Bullet):
         self.destroy_when_oos=destroy_when_oos
         self.destroyed = False
         self.num_frontmost = 2
-
+        self.owner = owner
 
         for i in range(self.num_frontmost):
             self.clone_bullets(i+1)

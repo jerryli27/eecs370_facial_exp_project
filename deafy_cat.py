@@ -158,13 +158,13 @@ class Deafy(pygame.sprite.Sprite):
 
         if bullet_type == "NORMAL":
             return NormalBullet(dx=bullet_speed, pos=bullet_location, ap=self.ap, color=bullet_color,
-                                bullet_size=BULLET_SIZE)
+                                bullet_size=BULLET_SIZE, owner=self)
         if bullet_type == "BOUNCE":
             return BounceBullet(dx=bullet_speed, pos=bullet_location, ap=self.ap, color=bullet_color,
-                                bullet_size=BULLET_SIZE)
+                                bullet_size=BULLET_SIZE, owner=self)
         if bullet_type == "SPREAD":
             spread_bullets = SpreadBullets(object_orientation, bullet_speed, ap=self.ap, pos=bullet_location,
-                                           color=bullet_color, bullet_size=BULLET_SIZE)
+                                           color=bullet_color, bullet_size=BULLET_SIZE, owner=self)
             bullets_list = spread_bullets.create_bullets()
             return bullets_list
 
