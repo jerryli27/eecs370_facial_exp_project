@@ -311,6 +311,7 @@ class MainScreen(object):
         self.dialog_frame = 0
         # To trach whether dialog is displayed now. If so, disable user control
         self.is_dialog_active = True # Disabled for demo purpose. Maybe add back later.
+        self.dialog_space_recharged = True
 
         # Reset sound and play a new random background music.
         self.background_channel.stop()
@@ -699,13 +700,16 @@ class MainScreen(object):
                 self.cat.stop_moving()
 
             if keys[K_SPACE]:
-                if self.dialog_frame < DIALOG_FRAME_COUNT:
+                if self.dialog_space_recharged and self.dialog_frame < DIALOG_FRAME_COUNT:
                     self.dialog_frame += 1
+                    self.dialog_space_recharged = False
                     self.dialog.dialog_index = self.dialog_frame
                     if self.dialog_frame >= DIALOG_FRAME_COUNT:
                         self.is_dialog_active = False
                         self.dialog.is_active = self.is_dialog_active
                         self.reset_battle()
+            else:
+                self.dialog_space_recharged = True
             if keys[K_z]:
                 # emit normal bullet
                 bullet = self.deafy.emit_bullets("NORMAL", recharge=True)   # this is to make keyboard input easier (no recharge)
