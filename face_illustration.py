@@ -7,8 +7,8 @@ from constants import *
 class Face(pygame.sprite.Sprite):
     """ This class represents the illustration of the facial landmarks.  It can be used for tutorial or for real-time
     user feedback."""
-    _WIDTH = 120
-    _HEIGHT = 120
+    _WIDTH = FACE_ILLUS_WIDTH
+    _HEIGHT = FACE_ILLUS_HEIGHT
     _BG_COLOR = BLACK
     _BUFFER_SIZE = 30
     _WINDOW = (_WIDTH, _HEIGHT)

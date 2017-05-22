@@ -18,9 +18,9 @@ class Deafy(pygame.sprite.Sprite):
     _JUMP_SOUND_INDEX = 1
     _VICTORY_SOUND_INDEX = 2
     _BULLET_COLORS = {
-        'NORMAL': BLUE,
-        'BOUNCE': DARK_BLUE,
-        'SPREAD': LIGHT_BLUE
+        'NORMAL': DEEP_SKY_BLUE,
+        'BOUNCE': VIOLET,
+        'SPREAD': DEEP_SKY_BLUE
     }
     _BULLET_CD_SECS = {
         'NORMAL': 1,
@@ -181,9 +181,9 @@ class Deafy(pygame.sprite.Sprite):
 
 class CatOpponent(Deafy):
     _BULLET_COLORS = {
-        'NORMAL': RED,
-        'BOUNCE': DARK_RED,
-        'SPREAD': LIGHT_RED
+        'NORMAL': ORANGE,
+        'BOUNCE': LIGHT_RED,
+        'SPREAD': ORANGE,
     }
 
     def create_hp_bar(self):

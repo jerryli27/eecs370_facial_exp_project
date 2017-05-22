@@ -24,19 +24,22 @@ class BackgroundObjects(pygame.sprite.Sprite):
         # Makes the enemy move in the x direction.
         self.rect.move_ip(self.dx, self.dy)
 
+        # If the rectangle is out of the screen.
         if not BATTLE_SCREEN_RECT.colliderect(self.rect):
             if self.destroy_when_oos:
                 self.handle_oos()
                 return
-            else:
-                if self.rect.left > BATTLE_SCREEN_RECT.right:
-                    # Move the sprite towards the left n pixels where n = width of platform + width of object.
-                    self.rect.move_ip(BATTLE_SCREEN_RECT.left - BATTLE_SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH, 0)
-                elif self.rect.right < BATTLE_SCREEN_RECT.left:
-                    # Move the sprite towards the right n pixels where n = width of platform + width of object.
-                    self.rect.move_ip(BATTLE_SCREEN_RECT.right - BATTLE_SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH, 0)
-                else:
-                    raise AssertionError("This line should not be reached. The object should only move left and right.")
+            # No longer needs the functions below because we do not need objects to appear at the other side of the
+            # screen any more.
+            # else:
+            #     if self.rect.left > BATTLE_SCREEN_RECT.right:
+            #         # Move the sprite towards the left n pixels where n = width of platform + width of object.
+            #         self.rect.move_ip(BATTLE_SCREEN_RECT.left - BATTLE_SCREEN_RECT.right - BACKGROUND_OBJECT_WIDTH, 0)
+            #     elif self.rect.right < BATTLE_SCREEN_RECT.left:
+            #         # Move the sprite towards the right n pixels where n = width of platform + width of object.
+            #         self.rect.move_ip(BATTLE_SCREEN_RECT.right - BATTLE_SCREEN_RECT.left + BACKGROUND_OBJECT_WIDTH, 0)
+            #     else:
+            #         raise AssertionError("This line should not be reached. The object should only move left and right.")
 
 
     def set_dx(self, dx):
@@ -55,6 +58,7 @@ class BackgroundObjects(pygame.sprite.Sprite):
         if self.destroy_when_oos:
             self.destroyed = True
             self.kill()
+
 
 
 class Ground(BackgroundObjects):

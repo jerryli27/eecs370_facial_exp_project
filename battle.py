@@ -192,8 +192,7 @@ class MainScreen(object):
                         deafy_sheet.image_at((25, 182, 44-25, 200-182), colorkey=-1, width_height=(19*2,18*2), flip_x=True),
                         deafy_sheet.image_at((2, 101, 22-2, 119-101), colorkey=-1, width_height=(20 * 2, 18 * 2),
                                              flip_x=True, flip_y=True),]
-        Sky.images =  [load_image('sky.png', (32,32))]
-        Ground.images =  [load_image('grass.png', (32,32))]
+        Sky.images = [load_image('space-1.png', BATTLE_SCREEN_SIZE)]
         GroundObstacle.images = [load_image('grass.png', (32,32)), load_image('sky.png', (32,32))]
         CatOpponent.images = [cat_sheet.image_at((0, 0, 54, 42), colorkey=-1),
                               cat_sheet.image_at((1, 158, 54, 42), colorkey=-1),
@@ -283,20 +282,7 @@ class MainScreen(object):
                 self.cat_features_q = None
 
     def init_battle(self):
-
-        # # initialize stage
-        # self.stage = Stage(num=1)
-        # self.current_items = []
-
-        # TODO: Maybe the height and width are the other way around
-        self.ground_sprites = [Ground(pos=(w*BACKGROUND_OBJECT_WIDTH, h*BACKGROUND_OBJECT_HEIGHT))
-                               for w in range(BATTLE_SCREEN_WIDTH / BACKGROUND_OBJECT_WIDTH + 1)
-                               for h in range(GROUND_Y_LIMITS[0] / BACKGROUND_OBJECT_HEIGHT + 1,
-                                              GROUND_Y_LIMITS[1] / BACKGROUND_OBJECT_HEIGHT + 1)]
-        self.sky_sprites = [Sky(pos=(w*BACKGROUND_OBJECT_WIDTH, h*BACKGROUND_OBJECT_HEIGHT))
-                               for w in range(BATTLE_SCREEN_WIDTH / BACKGROUND_OBJECT_WIDTH + 1)
-                               for h in range(SKY_Y_LIMITS[0] / BACKGROUND_OBJECT_HEIGHT + 1,
-                                              SKY_Y_LIMITS[1] / BACKGROUND_OBJECT_HEIGHT + 1)]
+        self.sky_sprites = Sky(pos=(0,BATTLE_SCREEN_HEIGHT), destroy_when_oos=False)
         self.deafy = Deafy(pos=DEAFY_SCREEN_POS)
         self.cat = CatOpponent(pos=CAT_SCREEN_POS)
         self.ground_obstacle_sprites = []
@@ -446,7 +432,8 @@ class MainScreen(object):
             # I need to return the two because the facial feature extractor in the same thread needs to use them.
             return camera_shot_raw, camera_shot
 
-    def blit_camera_shot(self, blit_location, which_cam_idx, q):
+
+    def load_camera_shot(self, which_cam_idx, q):
         """
 
         :param blit_location: tuple with format (x, y)
@@ -462,6 +449,13 @@ class MainScreen(object):
                                                                           CAMERA_INPUT_SIZE , "RGB")
                 self.camera_shot[which_cam_idx] = pygame.image.fromstring(camera_shot_pair[1],
                                                                           CAMERA_DISPLAY_SIZE , "RGB")
+
+    def blit_camera_shot(self, blit_location, which_cam_idx):
+        """
+
+        :param blit_location: tuple with format (x, y)
+        :return:
+        """
         if self.camera_shot[which_cam_idx] is None:
             raise IndexError("Can't blit camera shot. Camera index %d is not initialized correctly!" %which_cam_idx)
         else:
@@ -800,11 +794,13 @@ class MainScreen(object):
             # enable camera only after all dialog frames are shown
             if ARGS.camera and not self.is_dialog_active:
                 if self.deafy_cam_on:
-                    self.blit_camera_shot(self.camera_default_display_location[ARGS.deafy_camera_index],
-                                          ARGS.deafy_camera_index, self.deafy_queue)
+                    self.load_camera_shot(ARGS.deafy_camera_index, self.deafy_queue)
+                    # self.blit_camera_shot(self.camera_default_display_location[ARGS.deafy_camera_index],
+                    #                       ARGS.deafy_camera_index)
                 if self.cat_cam_on:
-                    self.blit_camera_shot(self.camera_default_display_location[ARGS.cat_camera_index],
-                                          ARGS.cat_camera_index, self.cat_queue)
+                    self.load_camera_shot(ARGS.cat_camera_index, self.cat_queue)
+                    # self.blit_camera_shot(self.camera_default_display_location[ARGS.cat_camera_index],
+                    #                       ARGS.cat_camera_index)
 
             self.blit_photos(PHOTO_DISPLAY_DEAFY_BOTTOMLEFT, self.deafy_player_photos,
                              PHOTO_DISPLAY_DEAFY_DELTA)
