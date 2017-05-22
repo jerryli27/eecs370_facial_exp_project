@@ -612,30 +612,6 @@ def get_any_eye_blink_rounds(facial_features_3d, num_rounds, threshold=EYE_AR_TH
     else:
         return 0
 
-# def get_blink_score(facial_features_3d):
-#     left_e_a_r = get_left_blink_score(facial_features_3d)
-#     right_e_a_r = get_right_blink_score(facial_features_3d)
-#     # average the eye aspect ratio together for both eyes
-#     ear = (left_e_a_r + right_e_a_r) / 2.0
-#     return ear
-
-# def get_direction_from_pose(pose_diff):
-#     """
-#     This is for controlling the movement of cat or deafy using head pose.
-#     :param pose_diff: The difference in pose when comparing to the calibrated pose. should be (yaw, pitch, roll)
-#     :return: (bool - true if the object should move ,a float from 0~2pi representing the direction)
-#     """
-#
-#     dy = pose_diff[2]
-#     # In pygame display left and right is reversed from what we usually perceive.
-#     dx = -pose_diff[1]
-#
-#     if abs(dx) <= POSE_MOVE_LOWER_THRESHOLD and abs(dy) <= POSE_MOVE_LOWER_THRESHOLD:
-#         return (False, 0)
-#     else:
-#         direction = np.arctan2(dy, dx) + math.pi # [0, 2pi]
-#         return (True, direction)
-
 def get_direction_from_line(line):
     """
     This is for controlling the movement of cat or deafy using head pose.
@@ -652,5 +628,19 @@ def get_direction_from_line(line):
     else:
         direction = np.arctan2(dy, dx) + math.pi  # [0, 2pi]
         return (True, direction)
+
+def get_take_photo_score(mouth_open_score, direction_line, facial_features_3d):
+    """
+    Gets a score for automatically taking photos of funny looking expressions. The higher the score the better.
+    :param mouth_open_score:
+    :param blink_ear:
+    :param direction_line:
+    :param facial_features_3d:
+    :return:
+    """
+    blink_ear = get_any_eye_blink_ear(facial_features_3d)
+    ret = mouth_open_score * (0.1 / (0.1 + blink_ear)) * dist.euclidean(direction_line[0], direction_line[1])
+    return ret
+
 
 # Face swapping https://matthewearl.github.io/2015/07/28/switching-eds-with-python/

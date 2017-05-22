@@ -52,6 +52,8 @@ class Deafy(pygame.sprite.Sprite):
         self.bullet_recharged = {bullet_type: True for bullet_type in self._BULLET_COLORS.keys()}
         self.bullet_last_fire = {bullet_type: None for bullet_type in self._BULLET_COLORS.keys()}
         self.blink_counter = 0  # The number of frames the eyes are closed.
+        self.max_photo_score = 0  # The maximum photo score in the current round.
+        self.photo = None  # The photo taken at the maximum photo score.
 
     # def move(self, pos):
     #     self.rect = self.image.get_rect(bottomright=pos)

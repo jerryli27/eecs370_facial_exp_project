@@ -16,7 +16,7 @@ import pygame.key
 from pygame.locals import *
 
 from facial_landmark_util import FacialLandmarkDetector, HeadPoseEstimator, get_mouth_open_score, \
-    get_any_eye_blink_rounds, get_direction_from_line
+    get_any_eye_blink_rounds, get_direction_from_line, get_take_photo_score
 from sprite_sheet import SpriteSheet
 
 from constants import *
@@ -166,7 +166,6 @@ class Stage(object):
 class MainScreen(object):
 
     size = (GAME_SCREEN_WIDTH, GAME_SCREEN_HEIGHT)
-    _FPS_BLIT_BOTTOM_LEFT = (0 + 5, GAME_SCREEN_HEIGHT - 5)
 
     def __init__(self, **argd):
         self.__dict__.update(**argd)
@@ -201,6 +200,8 @@ class MainScreen(object):
                               cat_sheet.image_at((1+54, 158, 54, 42), colorkey=-1),
                               cat_sheet.image_at((1+54*2, 158, 54, 42), colorkey=-1),
                               cat_sheet.image_at((1+54*3, 158, 54, 42), colorkey=-1), ]
+
+        self.default_face_photo = load_image('Barack-Obama-Funny-Face-Image.jpg')
         # Load sounds
         Deafy.sounds = [load_sound("normal.ogg"), load_sound("jump.ogg"), load_sound("victory.ogg")]
         CatOpponent.sounds=[load_sound("cat_meow.wav"), load_sound("Cat-meow-nervous.wav"),
@@ -245,7 +246,8 @@ class MainScreen(object):
         Face.containers = self.all, self.background_group
         Dialog.containers = self.all, self.background_group
 
-
+        self.deafy_player_photos = []
+        self.cat_player_photos = []
         # Initialize camera
         if ARGS.camera:
             # HeadPoseEstimator
@@ -310,10 +312,6 @@ class MainScreen(object):
         # To trach whether dialog is displayed now. If so, disable user control
         self.is_dialog_active = True # Disabled for demo purpose. Maybe add back later.
 
-        # Facial feature detection things.
-        self.blink_counter = 0
-        self.deafy_bullet_need_recharge = False
-
         # Reset sound and play a new random background music.
         self.background_channel.stop()
         self._queue_random_bgm()
@@ -332,10 +330,6 @@ class MainScreen(object):
         self.dialog_frame = 0
         # To trach whether dialog is displayed now. If so, disable user control.
         self.is_dialog_active = False # Disabled for demo purpose. Maybe add back later.
-
-        # Facial feature detection things.
-        self.blink_counter = 0
-        self.deafy_bullet_need_recharge = False
 
         # Reset sound and play a new random background music.
         self.background_channel.stop()
@@ -364,9 +358,11 @@ class MainScreen(object):
             self.stop_flag.value = 1
         if ARGS.camera:
             if self.deafy_cam_on:
-                self.deafy_process.join()
+                self.deafy_process.terminate()
+                # self.deafy_process.join()
             if self.cat_cam_on:
-                self.cat_process.join()
+                self.cat_process.terminate()
+                # self.cat_process.join()
 
         if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
             print("Game exiting.")
@@ -453,12 +449,21 @@ class MainScreen(object):
             camera_shot_pair = q.get()
             if camera_shot_pair is not None:
                 # Get the second one - the resized camera shot.
+                self.camera_shot_raw[which_cam_idx] = pygame.image.fromstring(camera_shot_pair[0],
+                                                                          CAMERA_INPUT_SIZE , "RGB")
                 self.camera_shot[which_cam_idx] = pygame.image.fromstring(camera_shot_pair[1],
                                                                           CAMERA_DISPLAY_SIZE , "RGB")
         if self.camera_shot[which_cam_idx] is None:
             raise IndexError("Can't blit camera shot. Camera index %d is not initialized correctly!" %which_cam_idx)
         else:
             self.display.blit(self.camera_shot[which_cam_idx], blit_location)
+
+
+    def blit_photos(self, blit_location, photo_list, blit_location_delta):
+        for i, (photo, photo_resized) in enumerate(photo_list):
+            current_blit_location = (blit_location[0] + blit_location_delta[0] * i,
+                                     blit_location[1] + blit_location_delta[1] * i)
+            self.display.blit(photo_resized, current_blit_location)
 
     def _get_direction_from_keys(self, keys, wasd_constant_list):
         """
@@ -570,6 +575,15 @@ class MainScreen(object):
                     if bullets:
                         self.bullets = self.bullets + bullets
 
+                # Now do automatically taking pictures.
+                photo_score =  get_take_photo_score(mouth_open_score, head_pose[2][0], facial_features_3d)
+                if photo_score > obj.max_photo_score:
+                    obj.max_photo_score = photo_score
+                    if self.camera_shot[which_cam_idx] is None:
+                        raise IndexError("Can't get camera shot. Camera shot %d is empty!"
+                                         % which_cam_idx)
+                    obj.photo = self.camera_shot_raw[which_cam_idx].subsurface(Rect(face_coordinates_list[face_index]))
+
                 # blink_score = get_blink_score(facial_features_3d)
                 # # check to see if the eye aspect ratio is below the blink
                 # # threshold, and if so, increment the blink frame counter
@@ -587,6 +601,9 @@ class MainScreen(object):
 
     def _queue_random_bgm(self):
         self.background_channel.queue(self.background_sounds[random.randint(0, len(self.background_sounds) - 1)])
+
+    def _add_photo_to_list(self, photo_list, photo):
+        photo_list.append((photo, pygame.transform.scale(photo, PHOTO_DISPLAY_SIZE)))
 
     def main(self,):
         # Before anything else, calibrate camera.
@@ -620,15 +637,28 @@ class MainScreen(object):
         while going:
 
             if self.deafy.hp <= 0 or self.cat.hp <= 0:
-                if self.deafy.hp <= 0:
+                if self.deafy.hp <= 0 and self.cat.hp <= 0:
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
-                        print('Deafy ran out of hp. Cat wins!')
+                        print('Draw!')
                 elif self.cat.hp <= 0:
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
                         print('Cat ran out of hp. Deafy wins!')
                 else:
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
-                        print('Draw!')
+                        print('Deafy ran out of hp. Cat wins!')
+
+                if self.deafy.hp <= 0:
+                    # Now save the automatically taken photos of the players
+                    if ARGS.camera and self.deafy_cam_on and self.deafy.photo is not None:
+                        self._add_photo_to_list(self.deafy_player_photos, self.deafy.photo)
+                    else:
+                        self._add_photo_to_list(self.deafy_player_photos, self.default_face_photo)
+                if self.cat.hp <= 0:
+                    if ARGS.camera and self.cat_cam_on and self.cat.photo is not None:
+                        self._add_photo_to_list(self.cat_player_photos, self.cat.photo)
+                    else:
+                        self._add_photo_to_list(self.cat_player_photos, self.default_face_photo)
+
                 # I know this is weird but it seems to be able to avoid some lag and make sure no
                 # keyboard inputs are carried over to the next game
                 time.sleep(1)
@@ -765,14 +795,17 @@ class MainScreen(object):
                 if self.deafy_cam_on:
                     self.blit_camera_shot(self.camera_default_display_location[ARGS.deafy_camera_index],
                                           ARGS.deafy_camera_index, self.deafy_queue)
-
                 if self.cat_cam_on:
                     self.blit_camera_shot(self.camera_default_display_location[ARGS.cat_camera_index],
                                           ARGS.cat_camera_index, self.cat_queue)
 
+            self.blit_photos(PHOTO_DISPLAY_DEAFY_BOTTOMLEFT, self.deafy_player_photos,
+                             PHOTO_DISPLAY_DEAFY_DELTA)
+            self.blit_photos(PHOTO_DISPLAY_CAT_BOTTOMLEFT, self.cat_player_photos,
+                             PHOTO_DISPLAY_CAT_DELTA)
             self.clock.tick(MAX_FPS)
             self.text.blit_text_bottom_left_corner_at("FPS: %.1f" % (self.clock.get_fps()),
-                                                      self._FPS_BLIT_BOTTOM_LEFT, self.display)
+                                                      FPS_BLIT_BOTTOM_LEFT, self.display)
             pygame.display.flip()
 
 
