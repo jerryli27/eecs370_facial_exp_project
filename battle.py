@@ -97,7 +97,7 @@ def fire_bullet(object_firing, object_orientation, bullet_speed=BULLET_SPEED, bu
     :param object_firing: The object firing the bullet. Must have the .rect attribute.
     :param object_orientation: "LEFT" or "RIGHT"
     :param bullet_speed: A positive number, it represents the speed of the bullet independent of its direction.
-    :param bullet_color: A tuple representing its _HP_COLOR.
+    :param bullet_color: A tuple representing its _VAL_COLOR.
     :return:
     """
     if bullet_speed <= 0:
@@ -307,8 +307,6 @@ class MainScreen(object):
     def reset_battle(self):
         # I know this is weird but it seems to be able to avoid some lag and make sure no
         # keyboard inputs are carried over to the next game
-        time.sleep(1)
-        events = pygame.event.get()
         time.sleep(1)
         events = pygame.event.get()
         time.sleep(1)
@@ -645,10 +643,10 @@ class MainScreen(object):
                         print('Draw!')
                 elif self.cat.hp <= 0:
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
-                        print('Cat ran out of hp. Deafy wins!')
+                        print('Cat ran out of value. Deafy wins!')
                 else:
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
-                        print('Deafy ran out of hp. Cat wins!')
+                        print('Deafy ran out of value. Cat wins!')
 
                 if not self.is_dialog_active:
                     if self.deafy.hp <= 0:

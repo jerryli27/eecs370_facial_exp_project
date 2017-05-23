@@ -69,7 +69,7 @@ class SpreadBullets(Bullet):
 
 
         # self.image = pygame.Surface([bullet_size, bullet_size])
-        # self.image.fill(_HP_COLOR)
+        # self.image.fill(_VAL_COLOR)
         # self.rect = self.image.get_rect(bottomleft=pos)
 
 

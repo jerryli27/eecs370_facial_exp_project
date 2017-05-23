@@ -17,6 +17,7 @@ class Deafy(pygame.sprite.Sprite):
     _FAIL_INDEX = 4
     _JUMP_SOUND_INDEX = 1
     _VICTORY_SOUND_INDEX = 2
+    _BULLET_TYPES = ["NORMAL", "BOUNCE", "SPREAD"]
     _BULLET_COLORS = {
         'NORMAL': DEEP_SKY_BLUE,
         'BOUNCE': VIOLET,
@@ -48,7 +49,7 @@ class Deafy(pygame.sprite.Sprite):
         self.failed = False  # If true, disable user control.
         self.hp = PLAYER_HP
         self.ap = PLAYER_AP
-        self.hp_bar = self.create_hp_bar()
+        self.init_stats_ui()
         self.bullet_recharged = {bullet_type: True for bullet_type in self._BULLET_COLORS.keys()}
         self.bullet_last_fire = {bullet_type: None for bullet_type in self._BULLET_COLORS.keys()}
         self.blink_counter = 0  # The number of frames the eyes are closed.
@@ -84,13 +85,20 @@ class Deafy(pygame.sprite.Sprite):
         # Check if out of screen. If so, move back into the screen
         if BATTLE_SCREEN_RECT.colliderect(self.rect):
             self.rect.clamp_ip(BATTLE_SCREEN_RECT)
-
         if self.is_running:
             self.run_next_frame()
+        # update bullet CD
+        for type in self._BULLET_TYPES:
+            cdbar = self.cd_bars[type]
+            now, last = time.time(), self.bullet_last_fire[type]
+            if last:
+                cd = min(now-last, self._BULLET_CD_SECS[type])
+                cdbar.set_value(cd)
+
 
     def take_damage(self, bullet):
         self.hp -= bullet.ap
-        self.hp_bar.set_hp(self.hp)
+        self.hp_bar.set_value(self.hp)
 
     def change_image(self, new_image_index):
         if self.current_image_index != new_image_index:
@@ -130,7 +138,7 @@ class Deafy(pygame.sprite.Sprite):
         # handle the CD
         now, last = time.time(), self.bullet_last_fire[bullet_type]
         if (not self.bullet_recharged[bullet_type]) or (last and now < last + self._BULLET_CD_SECS[bullet_type]):
-            print 'CD not done yet; wait %d more secs' % (last+self._BULLET_CD_SECS[bullet_type]-now)
+            # print 'CD not done yet; wait %f more secs' % (last+self._BULLET_CD_SECS[bullet_type]-now)
             return None
         self.bullet_last_fire[bullet_type] = now
         self.bullet_recharged[bullet_type] = recharge
@@ -171,11 +179,18 @@ class Deafy(pygame.sprite.Sprite):
     def recharge_bullet(self, bullet_type):
         self.bullet_recharged[bullet_type] = True
 
-    def create_hp_bar(self):
-        return HPBar(hp_max=self.hp, pos=HP_BAR_DEAFY_BOTTOMLEFT, name='DEAFY')
+    def init_stats_ui(self, name='DEAFY', pos=HP_BAR_DEAFY_BOTTOMLEFT):
+        self.hp_bar = HPBar(val_max=self.hp, pos=pos, name=name)
+        self.cd_bars = {}
+        for type in reversed(self._BULLET_TYPES):
+            i = self._BULLET_TYPES.index(type)
+            cd_pos = (pos[0]+HP_BAR_FULL_LENGTH+CD_HP_WIDTH_BUFFER, pos[1]-i*(CD_BAR_HEIGHT*2))
+            self.cd_bars[type] = CDBar(val_max=self._BULLET_CD_SECS[type], pos=cd_pos, name=type, color=self._BULLET_COLORS[type])
 
     def kill(self):
         self.hp_bar.kill()
+        for type in self.cd_bars:
+            self.cd_bars[type].kill()
         pygame.sprite.Sprite.kill(self)
 
 
@@ -186,11 +201,11 @@ class CatOpponent(Deafy):
         'SPREAD': ORANGE,
     }
 
-    def create_hp_bar(self):
-        return HPBar(hp_max=self.hp, pos=HP_BAR_CAT_BOTTOMLEFT, name='KITTY')
+    def init_stats_ui(self, name='KITTY', pos=HP_BAR_CAT_BOTTOMLEFT):
+        Deafy.init_stats_ui(self, name=name, pos=pos)
 
     def emit_bullets(self, bullet_type, object_orientation='LEFT', bullet_speed=BULLET_SPEED, recharge=False):
-        return Deafy.emit_bullets(self, bullet_type, 'LEFT', bullet_speed, recharge)
+        return Deafy.emit_bullets(self, bullet_type, object_orientation, bullet_speed, recharge)
 
 
 class CatObstacle(BackgroundObjects):
