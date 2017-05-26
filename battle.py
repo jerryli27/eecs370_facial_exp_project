@@ -585,7 +585,10 @@ class MainScreen(object):
                     if self.camera_shot[which_cam_idx] is None:
                         raise IndexError("Can't get camera shot. Camera shot %d is empty!"
                                          % which_cam_idx)
-                    obj.photo = self.camera_shot_raw[which_cam_idx].subsurface(Rect(face_coordinates_list[face_index]))
+                    # Clip the rectangle inside the camera surface, because ometimes the face coordinate is outside
+                    # of the surface.
+                    clip_rect = Rect(face_coordinates_list[face_index]).clip(self.camera_shot_raw[which_cam_idx].get_bounding_rect())
+                    obj.photo = self.camera_shot_raw[which_cam_idx].subsurface(clip_rect)
 
                 # blink_score = get_blink_score(facial_features_3d)
                 # # check to see if the eye aspect ratio is below the blink
@@ -732,7 +735,6 @@ class MainScreen(object):
                 bullets = self.cat.emit_bullets("SPREAD", recharge=True)
                 if bullets:
                     self.bullets = self.bullets + bullets
-
 
             if ARGS.camera and not self.is_dialog_active:
                 if self.deafy_cam_on:
