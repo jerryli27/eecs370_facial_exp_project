@@ -16,7 +16,7 @@ import pygame.key
 from pygame.locals import *
 
 from facial_landmark_util import FacialLandmarkDetector, HeadPoseEstimator, get_mouth_open_score, \
-    get_any_eye_blink_rounds, get_direction_from_line, get_take_photo_score
+    get_any_eye_blink_rounds, get_direction_from_line, get_take_photo_score, get_mouth_right_to_left_score
 from sprite_sheet import SpriteSheet
 
 from constants import *
@@ -460,6 +460,8 @@ class MainScreen(object):
             current_blit_location = (blit_location[0] + blit_location_delta[0] * i,
                                      blit_location[1] + blit_location_delta[1] * i)
             self.display.blit(photo_resized, current_blit_location)
+    def blit_win_line(self):
+        pygame.draw.line(self.display, YELLOW, WIN_LINE[0], WIN_LINE[1], WIN_LINE_WIDTH)
 
     def _get_direction_from_keys(self, keys, wasd_constant_list):
         """
@@ -490,6 +492,7 @@ class MainScreen(object):
             return (True, direction)
 
     def _calibrate_camera(self, which_cam_idx, fld):
+        fld.clear_calibrate_results()
         while not fld.calibrate_face(self.camera_shot_raw[which_cam_idx], self.hpe, self.display):
             self.get_camera_shot(which_cam_idx)
             # self.blit_camera_shot((0, 0), which_cam_idx)
@@ -558,18 +561,27 @@ class MainScreen(object):
                 if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
                     print("Mouth open score: %f" % (mouth_open_score))
 
-                # # Use the eye aspect ratio (aka blink detection) to jump
-                prev_blink_counter = obj.blink_counter
-                obj.blink_counter = get_any_eye_blink_rounds(facial_features_3d, obj.blink_counter)
+                # # # Use the eye aspect ratio (aka blink detection) to jump
+                # prev_blink_counter = obj.blink_counter
+                # obj.blink_counter = get_any_eye_blink_rounds(facial_features_3d, obj.blink_counter, fld.norm_eye)
+                #
+                # if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
+                #     print("Number of frames that one of the eyes is closed: %d" % (obj.blink_counter))
+                # # Fire the spread bullet when the eye has been closed for a while and now it is open.
+                # if prev_blink_counter >= EYE_AR_CONSEC_FRAMES and obj.blink_counter == 0:
+                #     # No recharge for now...
+                #     bullets = obj.emit_bullets("SPREAD", recharge=True)
+                #     if bullets:
+                #         self.bullets = self.bullets + bullets
 
-                if DEBUG_LEVEL >= DEBUG_PRINT_ALL:
-                    print("Number of frames that one of the eyes is closed: %d" % (obj.blink_counter))
-                # Fire the spread bullet when the eye has been closed for a while and now it is open.
-                if prev_blink_counter >= EYE_AR_CONSEC_FRAMES and obj.blink_counter == 0:
-                    # No recharge for now...
-                    bullets = obj.emit_bullets("SPREAD", recharge=True)
+
+                mouth_right_to_left_score = get_mouth_right_to_left_score(facial_features_3d, fld.norm_mouth)
+                if mouth_right_to_left_score >= MOUTH_LTR_SCORE_SHOOT_THRESHOLD:
+                    bullets =  obj.emit_bullets("SPREAD", recharge=True)
                     if bullets:
                         self.bullets = self.bullets + bullets
+                elif mouth_right_to_left_score <= MOUTH_LTR_SCORE_RECHARGE_THRESHOLD:
+                    obj.recharge_bullet("SPREAD")
 
                 # Now do automatically taking pictures.
                 photo_score =  get_take_photo_score(mouth_open_score, head_pose[2][0], facial_features_3d)
@@ -641,13 +653,13 @@ class MainScreen(object):
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
                         print('Draw!')
                 elif self.cat.hp <= 0:
-                    winner = 'Kitty'
+                    winner = 'Deafy'
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
                         print('Kitty ran out of value. Deafy wins!')
                 else:
-                    winner = 'Deafy'
+                    winner = 'Kitty'
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
-                        print('Deafy ran out of value. Cat wins!')
+                        print('Deafy ran out of value. Kitty wins!')
 
                 if self.deafy.hp <= 0:
                     # Now save the automatically taken photos of the players
@@ -661,8 +673,20 @@ class MainScreen(object):
                     else:
                         self._add_photo_to_list(self.cat_player_photos, self.default_face_photo)
 
-                self.restart_dialog = dialog.Dialog(text_group=dialog.get_restart_text(winner))
-                # self.reset_battle()
+                # If any side has more than 5 photos, game is over.
+                if len(self.cat_player_photos) >= 1 or len(self.deafy_player_photos) >= 1:
+                    if len(self.cat_player_photos) >= 1 and len(self.deafy_player_photos) >= 1:
+                        winner = 'Draw'
+                    elif len(self.cat_player_photos) >= 1:
+                        winner = 'Deafy'
+                    else:
+                        winner = 'Kitty'
+                    self.restart_dialog = dialog.Dialog(text_group=dialog.get_restart_text(winner, game_over=True))
+                    going = False
+                else:
+                    self.restart_dialog = dialog.Dialog(text_group=dialog.get_restart_text(winner, game_over=False))
+
+
 
             events = pygame.event.get()
             for e in events:
@@ -687,18 +711,21 @@ class MainScreen(object):
                 self.deafy.start_moving()
                 self.deafy.set_direction(deafy_direction)
             else:
-                self.deafy.stop_moving()
+                # This will affect camera
+                pass
+                # self.deafy.stop_moving()
             if cat_is_moving:
                 self.cat.start_moving()
                 self.cat.set_direction(cat_direction)
             else:
-                self.cat.stop_moving()
+                pass
+                # self.cat.stop_moving()
 
             if keys[K_SPACE]:
                 if self.restart_dialog and self.dialog_space_recharged:
                     self.restart_dialog.next_frame()
                     self.dialog_space_recharged = False
-                if not self.restart_dialog.is_active:
+                if self.restart_dialog and not self.restart_dialog.is_active:
                     self.restart_dialog = None
                     self.reset_battle()
             else:
@@ -777,8 +804,6 @@ class MainScreen(object):
 
 
             # Clear screen and set every pixel to black..
-            # TODO: Otherwise things that are blit directly onto the screen (not a sprite) is not erazed correctly.
-            # Is there a better solution?
             self.display.fill(BLACK)
 
             # clear/erase the last drawn sprites
@@ -807,6 +832,7 @@ class MainScreen(object):
                              PHOTO_DISPLAY_DEAFY_DELTA)
             self.blit_photos(PHOTO_DISPLAY_CAT_BOTTOMLEFT, self.cat_player_photos,
                              PHOTO_DISPLAY_CAT_DELTA)
+            self.blit_win_line()
             self.clock.tick(MAX_FPS)
             self.text.blit_text_bottom_left_corner_at("FPS: %.1f" % (self.clock.get_fps()),
                                                       FPS_BLIT_BOTTOM_LEFT, self.display)

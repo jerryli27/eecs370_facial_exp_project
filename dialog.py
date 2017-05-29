@@ -9,8 +9,8 @@ TUTORIAL_TEXT = [['To Move:', 'Move your head', 'left, right, up, down'],
                  ['Tutorial vague enough?', 'You will get it once you start'],
                  ['Ready? ', 'Go!']]
 
-def get_restart_text(winner=''):
-    result = 'Congrats! ' + winner + ' wins!' if winner != 'Draw' else 'Draw! This is rare...'
+def get_restart_text(winner='', game_over=False):
+    result = 'Congrats! ' + winner + (' wins!' if game_over else ' wins this round!') if winner != 'Draw' else 'Draw! This is rare...'
     text = [[result, 'Press C for calibration', 'or press SPACE to continue']]
     return text
 

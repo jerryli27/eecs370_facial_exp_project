@@ -105,12 +105,14 @@ class FacialLandmarkDetector(object):
         # values over the calibration rounds.
         self._cal_mouth_left_corner_to_center_dists = []
         self._cal_mouth_right_corner_to_center_dists = []
+        self._cal_mouth = []
         self._cal_rolls = []
         self._cal_pitches = []
         self._cal_yaws = []
         # All attributes starting with norm is the calibrated value of a facial feature under normal conditions.
         self.norm_mouth_left_corner_to_center_dist = 0
         self.norm_mouth_right_corner_to_center_dist = 0
+        self.norm_mouth = 0
         self.norm_roll = 0
         self.norm_pitch = 0
         self.norm_yaw = 0
@@ -192,12 +194,14 @@ class FacialLandmarkDetector(object):
         # values over the calibration rounds.
         self._cal_mouth_left_corner_to_center_dists = []
         self._cal_mouth_right_corner_to_center_dists = []
+        self._cal_mouth = []
         self._cal_rolls = []
         self._cal_pitches = []
         self._cal_yaws = []
         # All attributes starting with norm is the calibrated value of a facial feature under normal conditions.
         self.norm_mouth_left_corner_to_center_dist = 0
         self.norm_mouth_right_corner_to_center_dist = 0
+        self.norm_mouth = 0
         self.norm_roll = 0
         self.norm_pitch = 0
         self.norm_yaw = 0
@@ -278,13 +282,15 @@ class FacialLandmarkDetector(object):
 
         self._cal_mouth_left_corner_to_center_dists.append(get_mouth_left_corner_to_center_dist(facial_features))
         self._cal_mouth_right_corner_to_center_dists.append(get_mouth_right_corner_to_center_dist(facial_features))
+        self._cal_mouth.append(get_mouth_right_to_left_dist(facial_features))
 
 
         self.calibrate_round_left -= 1
-        if self.calibrate_round_left == 0:
+        if self.calibrate_round_left <= 0:
             self.calibrated = True
             self.norm_mouth_left_corner_to_center_dist = np.average(self._cal_mouth_left_corner_to_center_dists)
             self.norm_mouth_right_corner_to_center_dist = np.average(self._cal_mouth_right_corner_to_center_dists)
+            self.norm_mouth = np.average(self._cal_mouth)
             self.norm_roll = np.average(self._cal_rolls)
             self.norm_pitch = np.average(self._cal_pitches)
             self.norm_yaw = np.average(self._cal_yaws)
@@ -559,6 +565,15 @@ def get_mouth_right_corner_score(facial_features_3d, normal_d):
     # Then compare that with a pre-measured right mouth corner to center of mouth
     return d / normal_d
 
+def get_mouth_right_to_left_dist(facial_features_3d):
+    assert isinstance(facial_features_3d, np.ndarray)
+    # hacky but works
+    return max(np.std(np.concatenate((facial_features_3d[48:51, 1], facial_features_3d[57:62, 1], facial_features_3d[66:67, 1], ))),
+               np.std(np.concatenate((facial_features_3d[51:57, 1], facial_features_3d[62:66, 1],))), )
+
+def get_mouth_right_to_left_score(facial_features_3d, normal_d):
+    d = get_mouth_right_to_left_dist(facial_features_3d)
+    return d / normal_d
 
 def eye_aspect_ratio(eye):
     # Adapted from http://www.pyimagesearch.com/2017/04/24/eye-blink-detection-opencv-python-dlib/
@@ -598,7 +613,7 @@ def get_any_eye_blink_ear(facial_features_3d):
     return ear
 
 
-def get_any_eye_blink_rounds(facial_features_3d, num_rounds, threshold=EYE_AR_THRESH):
+def get_any_eye_blink_rounds(facial_features_3d, num_rounds, cal_eye, threshold=EYE_AR_THRESH):
     """
 
     :param facial_features_3d:
@@ -606,8 +621,10 @@ def get_any_eye_blink_rounds(facial_features_3d, num_rounds, threshold=EYE_AR_TH
     :param threshold: The eyes are treated as closed if the 'ear' level is below this threshold.
     :return: new num_rounds = 0 if eyes are open, += 1 if eyes are closed.
     """
+    if cal_eye <= 0:
+        raise ValueError("The calibrated eye EAR value is not positive!")
     ear = get_any_eye_blink_ear(facial_features_3d)
-    if ear <= threshold:
+    if ear / cal_eye <= threshold:
         return num_rounds + 1
     else:
         return 0

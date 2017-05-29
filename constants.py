@@ -43,10 +43,14 @@ PHOTO_DISPLAY_CAT_BOTTOMLEFT = (BATTLE_SCREEN_WIDTH - PHOTO_DISPLAY_WIDTH,
                                 GAME_SCREEN_HEIGHT - PHOTO_DISPLAY_HEIGHT)
 PHOTO_DISPLAY_CAT_DELTA = (-PHOTO_DISPLAY_WIDTH, 0)
 
+WIN_LINE_WIDTH = BATTLE_SCREEN_WIDTH / 64
+WIN_LINE = ((BATTLE_SCREEN_WIDTH / 2, GAME_SCREEN_HEIGHT - PHOTO_DISPLAY_HEIGHT),
+            (BATTLE_SCREEN_WIDTH / 2, GAME_SCREEN_HEIGHT))
+
 BULLET_SPEED = 8
 BULLET_BOUNCE_H_SPEED = 3
 
-PLAYER_AP = 30
+PLAYER_AP = 10
 PLAYER_HP = 100
 
 INITIAL_GRAVITY = 2  # pixel/second^2
@@ -84,7 +88,7 @@ HP_BAR_CAT_BOTTOMLEFT = (GAME_SCREEN_WIDTH * 23 / 32, GAME_SCREEN_HEIGHT * 14 / 
 
 CD_BAR_FULL_LENGTH = 50
 CD_BAR_HEIGHT = 10
-CD_HP_WIDTH_BUFFER = 30
+CD_HP_WIDTH_BUFFER = 10
 
 FACE_ILLUS_WIDTH = GAME_SCREEN_WIDTH / 8
 FACE_ILLUS_HEIGHT = GAME_SCREEN_HEIGHT / 8
@@ -118,6 +122,8 @@ DARK_GRAY = (50, 50, 50)
 SELLION_INDEX = 27
 MOUTH_SCORE_SHOOT_THRESHOLD = 0.8  # The mouth score has to be at least this big for Deafy to start shooting.
 MOUTH_SCORE_RECHARGE_THRESHOLD = 0.4  # The mouth score has to be at least this big for Deafy to start shooting.
+MOUTH_LTR_SCORE_SHOOT_THRESHOLD = 1.2  # The mouth score has to be at least this big for Deafy to start shooting.
+MOUTH_LTR_SCORE_RECHARGE_THRESHOLD = 1.1  # The mouth score has to be at least this big for Deafy to start shooting.
 # The jump speed is the facial feature score times this factor: score * BLINK_JUMP_SPEED_FACTOR pixels per second.
 BLINK_JUMP_SPEED_FACTOR = 3
 # This controls the speed at which Deafy moves. (Temporary solution for the demo)
