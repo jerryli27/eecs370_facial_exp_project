@@ -20,7 +20,7 @@ from facial_landmark_util import FacialLandmarkDetector, HeadPoseEstimator, get_
 from sprite_sheet import SpriteSheet
 
 from constants import *
-from dialog import *
+import dialog
 from bullet import *
 from obstacle import *
 from deafy_cat import *
@@ -243,7 +243,7 @@ class MainScreen(object):
         Bullet.containers = self.all, self.front_group
         HPBar.containers = self.all, self.background_group
         Face.containers = self.all, self.background_group
-        Dialog.containers = self.all, self.background_group
+        dialog.Dialog.containers = self.all, self.background_group
 
         self.deafy_player_photos = []
         self.cat_player_photos = []
@@ -288,15 +288,12 @@ class MainScreen(object):
         self.ground_obstacle_sprites = []
         self.cat_obstacles = []
         self.bullets = []
-        self.dialog = Dialog(DIALOG_FRAME_COUNT)
+        self.restart_dialog = None
 
         self.dx = INITIAL_DX
         self.visible_xrange = [0, BATTLE_SCREEN_WIDTH]
 
-        # to track of which dialog frame shold be rendered
-        self.dialog_frame = 0
-        # To trach whether dialog is displayed now. If so, disable user control
-        self.is_dialog_active = True # Disabled for demo purpose. Maybe add back later.
+        # To trach whether restart_dialog is displayed now. If so, disable user control
         self.dialog_space_recharged = True
 
         # Reset sound and play a new random background music.
@@ -319,14 +316,12 @@ class MainScreen(object):
             b.kill()
         self.bullets = []
 
-        # to track of which dialog frame shold be rendered
-        self.dialog_frame = 0
-        # To trach whether dialog is displayed now. If so, disable user control.
-        self.is_dialog_active = False # Disabled for demo purpose. Maybe add back later.
-
         # Reset sound and play a new random background music.
         self.background_channel.stop()
         self._queue_random_bgm()
+
+        self.restart_dialog = None
+        self.dialog_space_recharged = True
 
         # Clear camera multithread queues.
         if ARGS.camera:
@@ -640,31 +635,34 @@ class MainScreen(object):
         self.clock = pygame.time.Clock()
         while going:
 
-            if self.deafy.hp <= 0 or self.cat.hp <= 0:
+            if (not self.restart_dialog) and (self.deafy.hp <= 0 or self.cat.hp <= 0):
+                winner = 'Draw'
                 if self.deafy.hp <= 0 and self.cat.hp <= 0:
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
                         print('Draw!')
                 elif self.cat.hp <= 0:
+                    winner = 'Kitty'
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
-                        print('Cat ran out of value. Deafy wins!')
+                        print('Kitty ran out of value. Deafy wins!')
                 else:
+                    winner = 'Deafy'
                     if DEBUG_LEVEL >= DEBUG_PRINT_ONLY_CRUCIAL:
                         print('Deafy ran out of value. Cat wins!')
 
-                if not self.is_dialog_active:
-                    if self.deafy.hp <= 0:
-                        # Now save the automatically taken photos of the players
-                        if ARGS.camera and self.deafy_cam_on and self.deafy.photo is not None:
-                            self._add_photo_to_list(self.deafy_player_photos, self.deafy.photo)
-                        else:
-                            self._add_photo_to_list(self.deafy_player_photos, self.default_face_photo)
-                    if self.cat.hp <= 0:
-                        if ARGS.camera and self.cat_cam_on and self.cat.photo is not None:
-                            self._add_photo_to_list(self.cat_player_photos, self.cat.photo)
-                        else:
-                            self._add_photo_to_list(self.cat_player_photos, self.default_face_photo)
+                if self.deafy.hp <= 0:
+                    # Now save the automatically taken photos of the players
+                    if ARGS.camera and self.deafy_cam_on and self.deafy.photo is not None:
+                        self._add_photo_to_list(self.deafy_player_photos, self.deafy.photo)
+                    else:
+                        self._add_photo_to_list(self.deafy_player_photos, self.default_face_photo)
+                if self.cat.hp <= 0:
+                    if ARGS.camera and self.cat_cam_on and self.cat.photo is not None:
+                        self._add_photo_to_list(self.cat_player_photos, self.cat.photo)
+                    else:
+                        self._add_photo_to_list(self.cat_player_photos, self.default_face_photo)
 
-                self.reset_battle()
+                self.restart_dialog = dialog.Dialog(text_group=dialog.get_restart_text(winner))
+                # self.reset_battle()
 
             events = pygame.event.get()
             for e in events:
@@ -697,16 +695,15 @@ class MainScreen(object):
                 self.cat.stop_moving()
 
             if keys[K_SPACE]:
-                if self.dialog_space_recharged and self.dialog_frame < DIALOG_FRAME_COUNT:
-                    self.dialog_frame += 1
+                if self.restart_dialog and self.dialog_space_recharged:
+                    self.restart_dialog.next_frame()
                     self.dialog_space_recharged = False
-                    self.dialog.dialog_index = self.dialog_frame
-                    if self.dialog_frame >= DIALOG_FRAME_COUNT:
-                        self.is_dialog_active = False
-                        self.dialog.is_active = self.is_dialog_active
-                        self.reset_battle()
+                if not self.restart_dialog.is_active:
+                    self.restart_dialog = None
+                    self.reset_battle()
             else:
                 self.dialog_space_recharged = True
+
             if keys[K_z]:
                 # emit normal bullet
                 bullet = self.deafy.emit_bullets("NORMAL", recharge=True)   # this is to make keyboard input easier (no recharge)
@@ -718,9 +715,22 @@ class MainScreen(object):
                 if bullet:
                     self.bullets.append(bullet)
             if keys[K_c]:
-                bullets = self.deafy.emit_bullets("SPREAD", recharge=True)
-                if bullets:
-                    self.bullets = self.bullets + bullets
+                if self.restart_dialog and self.restart_dialog.is_active:
+                    # do another calibration round here
+                    self.restart_dialog.kill()
+                    self.restart_dialog = None
+                    print('Re-calibrating...')
+                    if ARGS.camera:
+                        if self.deafy_cam_on:
+                            self._calibrate_camera(ARGS.deafy_camera_index, self.deafy_fld)
+                        if self.cat_cam_on:
+                            self._calibrate_camera(ARGS.cat_camera_index, self.cat_fld)
+                    self.reset_battle()
+                else:
+                    bullets = self.deafy.emit_bullets("SPREAD", recharge=True)
+                    if bullets:
+                        self.bullets = self.bullets + bullets
+
             if keys[K_j]:
                 bullet = self.cat.emit_bullets("NORMAL", recharge=True)
                 if bullet:
@@ -734,7 +744,7 @@ class MainScreen(object):
                 if bullets:
                     self.bullets = self.bullets + bullets
 
-            if ARGS.camera and not self.is_dialog_active:
+            if ARGS.camera:
                 if self.deafy_cam_on:
                     self._get_facial_scores(ARGS.deafy_camera_index, self.deafy, self.deafy_fld, self.deafy_player_face,
                                             self.deafy_features_q)
@@ -782,17 +792,8 @@ class MainScreen(object):
             self.obstacle_group.draw(self.display)
             self.front_group.draw(self.display)
 
-            # display dialog
-            #if self.is_dialog_active:
-                # TODO: minor detail but it might be better to keep one single dialog object instead of creating a
-                # new object every time. So like self.dialog.update_frame(self.dialog_frame) or something.
-                #self.dialog.dialog_index = self.dialog_frame
-                # Now the display blit is handled manually. Add it to a group and use methods like above to make sure
-                # it is drawn after everything else. The blinking is likely caused by this bug.
-                #self.display.blit(self.dialog.image, (BATTLE_SCREEN_WIDTH - 320, BATTLE_SCREEN_HEIGHT - 120))
-
-            # enable camera only after all dialog frames are shown
-            if ARGS.camera and not self.is_dialog_active:
+            # enable camera only after all restart_dialog frames are shown
+            if ARGS.camera:
                 if self.deafy_cam_on:
                     self.load_camera_shot(ARGS.deafy_camera_index, self.deafy_queue)
                     # self.blit_camera_shot(self.camera_default_display_location[ARGS.deafy_camera_index],

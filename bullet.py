@@ -74,7 +74,6 @@ class SpreadBullets(Bullet):
 
 
     def create_bullets(self):
-        print "self.bullets", len(self.bullets)
         return self.bullets
 
     def update(self):
