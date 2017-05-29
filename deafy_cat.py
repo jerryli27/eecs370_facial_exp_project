@@ -197,7 +197,7 @@ class Deafy(pygame.sprite.Sprite):
 class CatOpponent(Deafy):
     _BULLET_COLORS = {
         'NORMAL': ORANGE,
-        'BOUNCE': LIGHT_RED,
+        'BOUNCE': YELLOW,
         'SPREAD': ORANGE,
     }
 
