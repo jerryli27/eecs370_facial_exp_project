@@ -27,6 +27,7 @@ from deafy_cat import *
 from hp_bar import *
 from face_illustration import *
 from text import Text
+from tutorial import *
 
 
 # Command line argument parser.
@@ -616,7 +617,36 @@ class MainScreen(object):
     def _add_photo_to_list(self, photo_list, photo):
         photo_list.append((photo, pygame.transform.scale(photo, PHOTO_DISPLAY_SIZE)))
 
+    def _show_tutorial(self):
+        tutorial_active = True
+        space_key_recharged = True
+        num_tutorials = 4
+        number = 0
+
+        while tutorial_active:
+            events = pygame.event.get()
+            keys = pygame.key.get_pressed()
+
+            if keys[K_SPACE]:
+                if space_key_recharged == True:
+                    number += 1
+                    space_key_recharged = False
+
+                    if number >= num_tutorials:
+                        tutorial_active == False
+                        print "turorial end"
+                        break
+            else:
+                space_key_recharged = True
+
+            self.display.fill(BLACK)
+            current = draw_tutorial(number)
+            self.display.blit(current, (0,0))
+
+            pygame.display.flip()
+
     def main(self,):
+        self._show_tutorial()
         # Before anything else, calibrate camera.
 
         if ARGS.camera:
