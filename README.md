@@ -6,21 +6,25 @@ This is the git repo for EECS 370 class project at Northwestern. It uses facial 
 
 - Python 2.7 in Linux
 
-- PyGame
+- PyGame (https://www.pygame.org/news)
 
-- imutils
+- imutils (https://pypi.python.org/pypi/imutils)
 
-- dlib
+- dlib (https://pypi.python.org/pypi/dlib)
 
-- opencv
+- opencv (http://opencv.org/)
 
 # How to Play
 
-1. Make sure you are on Linux with the dependencies installed. 
+0. Make sure you are on Linux and have all the dependencies installed. 
 
-2. Make sure there are two cameras connected to your computer, with their respective indexs. (Usually it's just 0 and 1 if you only have two cameras hooked)
+1. Download and extract
+http://sourceforge.net/projects/dclib/files/dlib/v18.10/shape_predictor_68_face_landmarks.dat.bz2
+at the root folder.
 
-3. Use the following command the start the game: 
+2. Make sure you know the indexs of your computer cameras. (Usually it's just 0 and 1 if you only have two cameras hooked)
+
+3. Use the following command the start the game and follow the instructions. 
 ```
-python battle.py --deafy_camera_index <index of the left camera> --cat_camera_index <index of the right camera>
+python battle.py
 ```
