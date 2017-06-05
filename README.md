@@ -1,5 +1,6 @@
 # Go! Deafy!
-This is the git repo for EECS 370 class project at Northwestern. It uses facial landmark recognition to build an entertaining game.
+
+This is the git repo for EECS 370 class project at Northwestern. It uses facial landmark recognition to build an entertaining 2D bullet-hell player-vs-player game. In the game, the player uses facial orientation and expression to fight against each other. Tutorials can be found at the start of the game. 
 
 # Requirements
 
